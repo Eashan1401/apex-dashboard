@@ -26,7 +26,7 @@ def _get_key(*names):
             return v
     return ''
 
-ALPHA_KEY = _get_key('ALPHA_VANTAGE_KEY', 'ALPHAVANTAGE_API_KEY', 'ALPHA_VANTAGE_API_KEY')
+ALPHA_KEY = _get_key('ALPHA_VANTAGE_KEY', 'ALPHA_VANTAGE_API_KEY', 'ALPHAVANTAGE_API_KEY')
 FINNHUB_KEY = _get_key('FINNHUB_TOKEN', 'FINNHUB_API_KEY', 'FINNHUB_KEY')
 FRED_KEY = _get_key('FRED_API_KEY', 'FRED_KEY')
 
