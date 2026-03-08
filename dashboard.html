@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APEX Research Terminal v2</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#080c10;--bg2:#0d1117;--bg3:#111820;--border:#1e2d3d;--border2:#243447;
+    --accent:#00d4ff;--accent2:#0099cc;--green:#00e676;--red:#ff4444;
+    --gold:#ffd700;--silver:#c0c0c0;--oil:#ff8c00;
+    --text:#e8f4f8;--text2:#8baabf;--text3:#4a6880;
+    --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--display:'Bebas Neue',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,0.008) 2px,rgba(0,212,255,0.008) 4px);pointer-events:none;z-index:1000;}
+  ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border2);}
+  .up{color:var(--green);}.down{color:var(--red);}
+  .bg-up{background:rgba(0,230,118,0.08);}.bg-down{background:rgba(255,68,68,0.08);}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,0.4)}50%{box-shadow:0 0 0 8px rgba(0,212,255,0)}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+  @keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  /* HEADER */
+  header{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-mark{width:32px;height:32px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);animation:pulse 3s ease-in-out infinite;}
+  .logo-text{font-family:var(--display);font-size:22px;letter-spacing:3px;color:var(--accent);}
+  .logo-sub{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-top:-2px;}
+  .header-center{display:flex;gap:4px;}
+  .nav-tab{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);padding:6px 14px;border:1px solid transparent;cursor:pointer;transition:all 0.2s;background:none;}
+  .nav-tab:hover,.nav-tab.active{color:var(--accent);border-color:var(--border2);background:rgba(0,212,255,0.05);}
+  .header-right{display:flex;align-items:center;gap:16px;}
+  .live-badge{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--green);letter-spacing:1px;}
+  .live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1.5s ease-in-out infinite;}
+  .timestamp{font-family:var(--mono);font-size:11px;color:var(--text3);}
+
+  /* SEARCH */
+  .search-section{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;position:sticky;top:56px;z-index:150;}
+  .search-row{display:flex;gap:12px;align-items:center;}
+  .search-box{flex:1;display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border2);padding:0 14px;transition:border-color 0.2s;max-width:800px;}
+  .search-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px rgba(0,212,255,0.15);}
+  .search-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 0;letter-spacing:0.5px;}
+  .search-input::placeholder{color:var(--text3);}
+  .search-btn{background:var(--accent);color:var(--bg);border:none;padding:10px 20px;font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-weight:600;transition:opacity 0.2s;white-space:nowrap;}
+  .search-btn:hover{opacity:0.85;}
+  .quick-tags{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;}
+  .qtag-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;margin-right:4px;}
+  .qtag{font-family:var(--mono);font-size:10px;padding:3px 10px;border:1px solid var(--border2);color:var(--text3);cursor:pointer;transition:all 0.15s;letter-spacing:0.5px;}
+  .qtag:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.05);}
+
+  /* SEARCH DROPDOWN */
+  .search-dropdown{display:none;position:absolute;top:calc(100%);left:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-top:none;max-height:380px;overflow-y:auto;z-index:300;box-shadow:0 20px 60px rgba(0,0,0,0.85);}
+  .search-dropdown.open{display:block;}
+  .sdr-header{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);padding:7px 16px;background:var(--bg3);border-bottom:1px solid var(--border);}
+  .sdr-item{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;cursor:pointer;transition:background 0.15s;border-bottom:1px solid var(--border);gap:16px;}
+  .sdr-item:hover{background:rgba(0,212,255,0.05);}
+  .sdr-left{display:flex;align-items:center;gap:12px;}
+  .sdr-sym{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);min-width:70px;}
+  .sdr-name{font-size:12px;color:var(--text2);}
+  .sdr-right{display:flex;align-items:center;gap:10px;}
+  .sdr-type{font-family:var(--mono);font-size:9px;padding:2px 6px;border:1px solid var(--border2);color:var(--text3);letter-spacing:1px;}
+  .sdr-price{font-family:var(--mono);font-size:12px;color:var(--text);}
+  .sdr-chg{font-family:var(--mono);font-size:10px;padding:2px 5px;}
+  .sdr-empty{padding:8px 16px;font-family:var(--mono);font-size:10px;color:var(--text3);}
+
+  /* DETAIL PANEL */
+  .detail-panel{display:none;margin:0 24px;border:1px solid var(--accent);background:var(--bg2);position:relative;animation:fadeIn 0.3s ease;}
+  .detail-panel.open{display:block;}
+  .detail-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2),transparent);}
+  .dp-close{position:absolute;top:12px;right:16px;background:none;border:1px solid var(--border2);color:var(--text3);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;letter-spacing:1px;transition:all 0.15s;z-index:10;}
+  .dp-close:hover{border-color:var(--red);color:var(--red);}
+  .dp-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:32px;}
+  .dp-sym{font-family:var(--display);font-size:44px;letter-spacing:2px;color:var(--accent);line-height:1;}
+  .dp-name{font-size:13px;color:var(--text2);margin-top:4px;}
+  .dp-badge{font-family:var(--mono);font-size:10px;padding:3px 10px;border:1px solid var(--accent2);color:var(--accent2);letter-spacing:1px;margin-top:6px;display:inline-block;}
+  .dp-price-block{margin-left:auto;text-align:right;}
+  .dp-price{font-family:var(--display);font-size:40px;letter-spacing:1px;}
+  .dp-chg{font-family:var(--mono);font-size:13px;margin-top:4px;}
+  .dp-stats{display:grid;grid-template-columns:repeat(6,1fr);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .dp-stat{padding:10px 14px;border-right:1px solid var(--border);}
+  .dp-stat:last-child{border-right:none;}
+  .dp-stat-label{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:3px;}
+  .dp-stat-value{font-family:var(--mono);font-size:12px;color:var(--text);}
+  .dp-body{display:grid;grid-template-columns:1fr 1fr;}
+  .dp-section-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);padding:8px 16px;border-bottom:1px solid var(--border);background:var(--bg3);}
+  .dp-news-item{padding:11px 16px;border-bottom:1px solid var(--border);}
+  .dp-news-src{font-family:var(--mono);font-size:9px;color:var(--accent2);letter-spacing:1px;margin-bottom:3px;display:flex;gap:10px;}
+  .dp-news-time{color:var(--text3);}
+  .dp-news-headline{font-size:12px;color:var(--text);line-height:1.5;}
+  .dp-macro-item{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;}
+  .dp-macro-label{color:var(--text2);}
+  .dp-macro-val{color:var(--text);}
+  .dp-sig{font-size:9px;padding:2px 6px;letter-spacing:1px;}
+  .sp{color:var(--green);border:1px solid rgba(0,230,118,0.3);}
+  .sn{color:var(--red);border:1px solid rgba(255,68,68,0.3);}
+  .se{color:var(--gold);border:1px solid rgba(255,215,0,0.3);}
+
+  /* TICKER BAR */
+  .macro-bar{background:var(--bg3);border-bottom:1px solid var(--border);padding:0 24px;height:34px;display:flex;align-items:center;overflow:hidden;}
+  .macro-label{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-right:20px;white-space:nowrap;border-right:1px solid var(--border);padding-right:20px;}
+  .ticker-scroll{display:flex;animation:scroll 45s linear infinite;white-space:nowrap;}
+  .ticker-item{display:flex;align-items:center;gap:8px;padding:0 16px;border-right:1px solid var(--border);font-family:var(--mono);font-size:11px;}
+
+  /* MAIN GRID */
+  .main{padding:20px 24px;display:grid;grid-template-columns:1fr 1fr 1fr 315px;gap:16px;}
+  .card{background:var(--bg2);border:1px solid var(--border);position:relative;overflow:hidden;animation:fadeIn 0.4s ease forwards;}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.3;}
+  .card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);}
+  .card-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);}
+  .card-badge{font-family:var(--mono);font-size:9px;letter-spacing:1px;padding:2px 8px;border:1px solid var(--border2);color:var(--text3);}
+
+  /* MACRO OVERVIEW */
+  .macro-stats{display:grid;grid-template-columns:repeat(6,1fr);}
+  .ms{padding:13px 14px;border-right:1px solid var(--border);}
+  .ms:last-child{border-right:none;}
+  .ms-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+  .ms-value{font-family:var(--display);font-size:26px;letter-spacing:1px;line-height:1;margin-bottom:3px;}
+  .ms-change{font-family:var(--mono);font-size:10px;display:flex;align-items:center;gap:3px;}
+  .ms-sub{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px;}
+
+  /* NEWS */
+  .news-panel{grid-column:4;grid-row:1/5;display:flex;flex-direction:column;}
+  .news-feed{flex:1;overflow-y:auto;max-height:calc(100vh - 200px);}
+  .news-item{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;}
+  .news-item:hover{background:rgba(0,212,255,0.03);}
+  .news-item.breaking::before{content:'BREAKING';font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--red);border:1px solid var(--red);padding:1px 6px;display:inline-block;margin-bottom:5px;}
+  .news-src{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;display:flex;gap:8px;}
+  .nsrc{color:var(--accent2);}.ntime{color:var(--text3);}
+  .news-hl{font-size:12px;font-weight:500;color:var(--text);line-height:1.5;margin-bottom:4px;}
+  .news-tags{display:flex;gap:4px;flex-wrap:wrap;}
+  .ntag{font-family:var(--mono);font-size:9px;padding:1px 5px;border:1px solid var(--border2);color:var(--text3);}
+  .ntag.oil{border-color:var(--oil);color:var(--oil);}
+  .ntag.macro{border-color:var(--accent);color:var(--accent);}
+  .ntag.credit{border-color:#ff6b6b;color:#ff6b6b;}
+  .ntag.tech{border-color:#7c4dff;color:#7c4dff;}
+  .ntag.gold{border-color:var(--gold);color:var(--gold);}
+  .ntag.europe{border-color:#4caf50;color:#4caf50;}
+  .source-row{display:flex;gap:5px;padding:7px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .sbadge{font-family:var(--mono);font-size:9px;padding:3px 7px;border:1px solid var(--border2);color:var(--text3);cursor:pointer;transition:all 0.15s;letter-spacing:0.5px;}
+  .sbadge.active,.sbadge:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.05);}
+  .tag-row2{display:flex;gap:5px;padding:7px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .ftag{font-family:var(--mono);font-size:9px;padding:2px 7px;border:1px solid var(--border2);color:var(--text3);cursor:pointer;transition:all 0.15s;}
+  .ftag.active,.ftag:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.05);}
+  .geo-alert{background:linear-gradient(135deg,rgba(255,68,68,0.08),transparent 60%);border-left:3px solid var(--red) !important;padding:10px 13px;margin-bottom:1px;}
+  .geo-title{color:var(--red);font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;}
+  .geo-text{font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.5;}
+
+  /* STOCKS */
+  .stock-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);gap:10px;cursor:pointer;transition:all 0.15s;}
+  .stock-row:hover{background:rgba(0,212,255,0.04);margin:0 -16px;padding:7px 16px;}
+  .stock-row:last-child{border-bottom:none;}
+  .ssym{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1px;}
+  .sname{font-size:10px;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sprice{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap;}
+  .schg{font-family:var(--mono);font-size:10px;text-align:right;padding:2px 5px;min-width:50px;}
+
+  /* COMMODITIES */
+  .com-row{display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);gap:10px;cursor:pointer;transition:all 0.15s;}
+  .com-row:hover{background:rgba(0,212,255,0.03);margin:0 -16px;padding:9px 16px;}
+  .com-row:last-child{border-bottom:none;}
+  .com-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--bg3);border:1px solid var(--border);flex-shrink:0;}
+  .com-name{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:1px;}
+  .com-unit{font-size:10px;color:var(--text3);margin-top:1px;}
+  .com-bar{height:2px;background:var(--border);margin-top:5px;position:relative;overflow:hidden;}
+  .com-fill{height:100%;transition:width 1s ease;}
+  .com-price{font-family:var(--mono);font-size:13px;font-weight:600;}
+
+  /* FIXED INCOME */
+  .yield-curve{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:12px;}
+  .yn{text-align:center;padding:7px 4px;background:var(--bg3);border:1px solid var(--border);}
+  .yn.inv{border-color:rgba(255,68,68,0.4);background:rgba(255,68,68,0.05);}
+  .yn.norm{border-color:rgba(0,230,118,0.3);}
+  .yn-tenor{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:2px;}
+  .yn-rate{font-family:var(--display);font-size:16px;letter-spacing:1px;}
+  .yn-chg{font-family:var(--mono);font-size:9px;margin-top:2px;}
+  .spread-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;}
+  .spread-row:last-child{border-bottom:none;}
+  .sl{color:var(--text2);}
+  .sig{font-size:9px;padding:2px 6px;letter-spacing:1px;}
+  .sw{color:var(--red);border:1px solid rgba(255,68,68,0.4);}
+  .sok{color:var(--green);border:1px solid rgba(0,230,118,0.3);}
+  .sc{color:var(--gold);border:1px solid rgba(255,215,0,0.4);}
+
+  /* FUNDS */
+  .fund-panel{grid-column:1/3;}
+  .fund-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);}
+  .fund-card{background:var(--bg2);padding:11px;cursor:pointer;transition:background 0.15s;}
+  .fund-card:hover{background:var(--bg3);}
+  .fn{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1px;color:var(--accent);margin-bottom:1px;}
+  .fm{font-size:10px;color:var(--text3);margin-bottom:7px;}
+  .fsr{display:flex;justify-content:space-between;margin-bottom:3px;font-family:var(--mono);font-size:10px;}
+  .fsk{color:var(--text3);}.fsv{color:var(--text);}
+  .fund-flow{margin-top:5px;display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;}
+  .fi{color:var(--green);}.fo{color:var(--red);}
+  .fbar{flex:1;height:3px;background:var(--border);position:relative;}
+  .fbar-fill{height:100%;position:absolute;top:0;}
+  .fund-links{padding:7px 16px;border-top:1px solid var(--border);display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+  .flink-label{font-family:var(--mono);font-size:9px;color:var(--text3);}
+  .flink{font-family:var(--mono);font-size:9px;color:var(--accent2);text-decoration:none;}
+  .flink:hover{text-decoration:underline;}
+  .flink-note{font-family:var(--mono);font-size:9px;color:var(--text3);margin-left:auto;}
+
+  /* EVENTS */
+  .ev-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+  .ev-item:last-child{border-bottom:none;}
+  .ev-date{font-family:var(--mono);font-size:10px;color:var(--text3);min-width:44px;padding-top:2px;}
+  .ev-title{font-size:12px;font-weight:500;margin-bottom:3px;}
+  .ev-imp{font-family:var(--mono);font-size:9px;letter-spacing:1px;padding:2px 6px;display:inline-block;}
+  .ih{color:var(--red);border:1px solid rgba(255,68,68,0.4);}
+  .im{color:var(--gold);border:1px solid rgba(255,215,0,0.4);}
+
+  /* SIGNALS */
+  .signal-panel{grid-column:1/4;background:linear-gradient(135deg,rgba(0,212,255,0.02),transparent 60%);}
+  .signal-grid{display:grid;grid-template-columns:repeat(6,1fr);}
+  .sig-item{padding:11px 12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:5px;cursor:pointer;transition:background 0.15s;}
+  .sig-item:hover{background:rgba(0,212,255,0.04);}
+  .sig-item:last-child{border-right:none;}
+  .si-ticker{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1px;}
+  .si-rating{font-family:var(--display);font-size:19px;letter-spacing:2px;}
+  .rb{color:var(--green);}.rh{color:var(--gold);}.rs{color:var(--red);}.rw{color:var(--accent);}
+  .si-target{font-family:var(--mono);font-size:10px;color:var(--text2);}
+  .si-thesis{font-size:10px;color:var(--text3);line-height:1.4;}
+
+  /* EU */
+  .eu-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}
+
+  /* SECTOR */
+  .sec-item{display:flex;align-items:center;gap:10px;padding:6px 0;font-family:var(--mono);font-size:11px;}
+  .sec-name{color:var(--text2);min-width:100px;}
+  .sec-pct{color:var(--text);min-width:30px;text-align:right;}
+  .sec-bar{flex:1;height:3px;background:var(--border);}
+  .sec-fill{height:100%;transition:width 1.5s ease;}
+
+  /* FUND MODAL */
+  .fund-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:500;align-items:center;justify-content:center;}
+  .fund-modal.open{display:flex;}
+  .modal-inner{background:var(--bg2);border:1px solid var(--accent2);width:680px;max-width:95vw;max-height:88vh;overflow-y:auto;position:relative;animation:fadeIn 0.2s ease;}
+  .modal-inner::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2),transparent);}
+  .modal-close{position:absolute;top:12px;right:12px;background:none;border:1px solid var(--border2);color:var(--text3);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;letter-spacing:1px;}
+  .modal-close:hover{border-color:var(--red);color:var(--red);}
+  .modal-hdr{padding:18px 20px;border-bottom:1px solid var(--border);}
+  .modal-name{font-family:var(--display);font-size:36px;letter-spacing:3px;color:var(--accent);}
+  .modal-mgr{font-size:13px;color:var(--text2);margin-top:3px;}
+  .modal-body{padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .modal-sec-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:9px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+  .mstat{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;}
+  .mstat:last-child{border-bottom:none;}
+  .msk{color:var(--text3);}.msv{color:var(--text);}
+  .alloc-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-family:var(--mono);font-size:10px;}
+  .al{color:var(--text2);min-width:95px;}
+  .ap{color:var(--text);min-width:30px;text-align:right;}
+  .abar{flex:1;height:3px;background:var(--border);}
+  .afill{height:100%;background:var(--accent);}
+  .holding-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;}
+  .holding-item:last-child{border-bottom:none;}
+  .hs{color:var(--accent);min-width:50px;}
+  .hn{color:var(--text3);font-size:10px;flex:1;padding:0 8px;}
+  .hp{color:var(--text);}
+  .qnote{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:10px;line-height:1.5;}
+  .mlink{color:var(--accent2);text-decoration:none;}
+  .mlink:hover{text-decoration:underline;}
+  .flow-summary{margin-top:10px;padding:9px;background:var(--bg3);border:1px solid var(--border);}
+  .flow-sum-label{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--text3);margin-bottom:5px;}
+  .flow-nums{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;}
+
+  /* TAB PAGES */
+  .tab-page{display:none;padding:20px 24px;max-width:100%;animation:fadeIn 0.3s ease;}
+  .tab-page.active{display:block;}
+  .tab-page .page-title{font-family:var(--display);font-size:28px;letter-spacing:4px;color:var(--accent);margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+  .tab-page .card{margin-bottom:16px;}
+  .tab-page .card:last-child{margin-bottom:0;}
+  .full-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+  .full-table th{text-align:left;padding:8px 12px;background:var(--bg3);color:var(--text3);font-weight:500;letter-spacing:1px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .full-table td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text);}
+  .full-table tr:hover td{background:rgba(0,212,255,0.04);}
+  .full-table .num{text-align:right;}
+  .heatmap-grid{display:grid;grid-template-columns:repeat(11,1fr);gap:2px;}
+  .heatmap-cell{padding:10px 6px;text-align:center;font-family:var(--mono);font-size:10px;border:1px solid var(--border);}
+  .heatmap-cell .label{color:var(--text3);margin-bottom:4px;}
+  .heatmap-cell .pct{font-family:var(--display);font-size:14px;letter-spacing:1px;}
+  .panel-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .panel-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+  .metric-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;}
+  .metric-row:last-child{border-bottom:none;}
+  .corr-matrix{display:grid;gap:0;font-family:var(--mono);font-size:10px;}
+  .corr-cell{padding:6px 8px;text-align:center;border:1px solid var(--border);background:var(--bg2);}
+  .corr-cell.header{background:var(--bg3);color:var(--text3);font-weight:600;}
+  .corr-cell.none{background:rgba(0,212,255,0.08);}
+  .yield-curve-full{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:12px 0;}
+  .yield-point{padding:8px 12px;background:var(--bg3);border:1px solid var(--border);text-align:center;min-width:52px;}
+  .yield-point .tenor{font-family:var(--mono);font-size:9px;color:var(--text3);}
+  .yield-point .rate{font-family:var(--display);font-size:16px;}
+  .yield-point .chg{font-family:var(--mono);font-size:9px;}
+  .indicator-block{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+  .indicator-item{padding:10px;background:var(--bg3);border:1px solid var(--border);text-align:center;}
+  .indicator-item .l{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:4px;}
+  .indicator-item .v{font-family:var(--display);font-size:18px;}
+  .indicator-item .c{font-family:var(--mono);font-size:9px;margin-top:2px;}
+  .fund-expanded{border:1px solid var(--border);background:var(--bg2);margin-bottom:16px;overflow:hidden;}
+  .fund-expanded .fex-header{padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .fund-expanded .fex-name{font-family:var(--display);font-size:22px;letter-spacing:2px;color:var(--accent);}
+  .fund-expanded .fex-body{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:18px;}
+  .fund-expanded .fex-section-title{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+  .signal-card{border:1px solid var(--border);background:var(--bg2);padding:16px;margin-bottom:12px;}
+  .signal-card .sc-ticker{font-family:var(--display);font-size:24px;color:var(--accent);letter-spacing:2px;margin-bottom:8px;}
+  .signal-card .sc-meta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;font-family:var(--mono);font-size:11px;color:var(--text2);}
+  .signal-card .sc-thesis{font-size:12px;color:var(--text);line-height:1.5;margin-bottom:12px;}
+  .signal-card .sc-cases{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px;}
+  .signal-card .sc-case{padding:8px;background:var(--bg3);border:1px solid var(--border);font-size:11px;}
+  .signal-card .sc-case .case-label{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:4px;}
+  .meter-bar{height:8px;background:var(--border);margin-top:4px;overflow:hidden;}
+  .meter-fill{height:100%;transition:width 0.5s ease;}
+  .links-stack{display:flex;flex-wrap:wrap;gap:10px;padding:12px 0;}
+  .links-stack a{font-family:var(--mono);font-size:11px;color:var(--accent2);text-decoration:none;padding:6px 12px;border:1px solid var(--border2);}
+  .links-stack a:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.05);}
+
+  /* EDUCATION / TOOLTIPS */
+  .edu-trigger{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:4px;border-radius:50%;border:1px solid var(--accent2);color:var(--accent);font-size:10px;font-weight:600;cursor:help;vertical-align:middle;}
+  .edu-trigger:hover{background:rgba(0,212,255,0.15);}
+  .edu-popover{display:none;position:absolute;z-index:400;max-width:320px;padding:12px 14px;background:var(--bg2);border:1px solid var(--accent2);box-shadow:0 8px 32px rgba(0,0,0,0.5);font-size:11px;line-height:1.5;}
+  .edu-popover.open{display:block;animation:fadeIn 0.2s ease;}
+  .edu-popover .edu-title{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--accent);margin-bottom:6px;}
+  .edu-popover .edu-how{color:var(--text2);margin-bottom:8px;}
+  .edu-popover .edu-mean{color:var(--text);}
+  .edu-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:600;align-items:center;justify-content:center;}
+  .edu-modal.open{display:flex;}
+  .edu-modal-inner{background:var(--bg2);border:1px solid var(--accent);max-width:420px;max-height:80vh;overflow-y:auto;padding:20px;position:relative;}
+  .edu-modal-inner .edu-title{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--accent);margin-bottom:10px;}
+  .edu-modal-inner .edu-body{font-size:12px;color:var(--text2);line-height:1.6;}
+  .edu-modal-close{position:absolute;top:10px;right:10px;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;padding:4px 10px;font-family:var(--mono);font-size:10px;}
+  .edu-modal-close:hover{color:var(--red);border-color:var(--red);}
+  .data-source-badge{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;}
+  .data-source-badge.live{color:var(--green);}
+  .refresh-btn{font-family:var(--mono);font-size:10px;padding:4px 10px;border:1px solid var(--border2);color:var(--text3);background:var(--bg3);cursor:pointer;}
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .refresh-btn.loading{opacity:0.7;pointer-events:none;}
+</style>
+</head>
+<body>
+<script src="finance-ai.js"></script>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark"></div>
+    <div><div class="logo-text">APEX</div><div class="logo-sub">Research Terminal v2</div></div>
+  </div>
+  <div class="header-center">
+    <button class="nav-tab active" data-page="overview">Overview</button>
+    <button class="nav-tab" data-page="equities">Equities</button>
+    <button class="nav-tab" data-page="macro">Macro</button>
+    <button class="nav-tab" data-page="funds">Funds</button>
+    <button class="nav-tab" data-page="fixedIncome">Fixed Income</button>
+    <button class="nav-tab" data-page="signals">Signals</button>
+  </div>
+  <div class="header-right">
+    <button class="refresh-btn" id="refreshBtn" onclick="refreshLiveData()" title="Fetch latest prices">REFRESH</button>
+    <span class="data-source-badge" id="lastUpdated" title="Data source">Demo data</span>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="timestamp" id="clock"></div>
+  </div>
+</header>
+
+<!-- SEARCH -->
+<div class="search-section" id="searchSection">
+  <div class="search-row">
+    <div class="search-box">
+      <span style="color:var(--text3);font-size:14px;">⌕</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search ticker, company, ETF, bond, macro theme... e.g. NVDA · Private Credit · Iran Oil · FOMC" autocomplete="off"/>
+    </div>
+    <button class="search-btn" onclick="doSearch()">SEARCH</button>
+  </div>
+  <div class="quick-tags">
+    <span class="qtag-label">QUICK:</span>
+    <span class="qtag" onclick="qs('NVDA')">NVDA</span>
+    <span class="qtag" onclick="qs('MSFT')">MSFT</span>
+    <span class="qtag" onclick="qs('JPM')">JPM</span>
+    <span class="qtag" onclick="qs('GOLD')">GOLD</span>
+    <span class="qtag" onclick="qs('WTI OIL')">OIL</span>
+    <span class="qtag" onclick="qs('PRIVATE CREDIT')">PRIVATE CREDIT</span>
+    <span class="qtag" onclick="qs('FOMC FED RATE')">FOMC</span>
+    <span class="qtag" onclick="qs('ASML')">ASML</span>
+    <span class="qtag" onclick="qs('BLACKROCK')">BLACKROCK</span>
+    <span class="qtag" onclick="qs('YIELD CURVE')">YIELD CURVE</span>
+    <span class="qtag" onclick="qs('SPY ETF')">SPY ETF</span>
+    <span class="qtag" onclick="qs('IRAN GEOPOLITICAL')">IRAN / GEO</span>
+    <span class="qtag" onclick="qs('BLACKSTONE BREIT')">BLACKSTONE</span>
+  </div>
+  <div class="search-dropdown" id="sDropdown">
+    <div class="sdr-header">EQUITIES</div><div id="srEq"></div>
+    <div class="sdr-header">ETFs & FUNDS</div><div id="srETF"></div>
+    <div class="sdr-header">MACRO & THEMES</div><div id="srMac"></div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-panel" id="detailPanel">
+  <button class="dp-close" onclick="closeDetail()">✕ CLOSE</button>
+  <div class="dp-header">
+    <div>
+      <div class="dp-sym" id="dpSym"></div>
+      <div class="dp-name" id="dpName"></div>
+      <div class="dp-badge" id="dpType"></div>
+    </div>
+    <div class="dp-price-block">
+      <div class="dp-price" id="dpPrice"></div>
+      <div class="dp-chg" id="dpChg"></div>
+    </div>
+  </div>
+  <div class="dp-stats" id="dpStats"></div>
+  <div class="dp-body">
+    <div>
+      <div class="dp-section-title" id="dpNewsTitle">LATEST NEWS</div>
+      <div id="dpNews"></div>
+    </div>
+    <div>
+      <div class="dp-section-title">MACRO CONTEXT & SIGNALS</div>
+      <div id="dpMacro"></div>
+      <div style="padding:10px 16px;border-top:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">SOURCES FOR THIS INSTRUMENT</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;" id="dpSources"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OVERVIEW PAGE -->
+<div id="overviewPage" class="tab-page active">
+<!-- TICKER BAR -->
+<div class="macro-bar">
+  <div class="macro-label">MARKETS</div>
+  <div class="ticker-scroll" id="ticker"></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- MACRO OVERVIEW -->
+  <div class="card" style="grid-column:1/4;padding:0;">
+    <div class="card-header"><span class="card-title">Macro Regime Monitor</span><span class="card-badge">US · EU · GLOBAL</span></div>
+    <div class="macro-stats">
+      <div class="ms"><div class="ms-label">Fed Funds</div><div class="ms-value up">5.33%</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--text2)"> Held Mar '26</span></div><div class="ms-sub">Next: May 7</div></div>
+      <div class="ms"><div class="ms-label">2Y/10Y Spread</div><div class="ms-value down">-0.18%</div><div class="ms-change"><span class="down">▼</span><span style="color:var(--red)"> INVERTED</span></div><div class="ms-sub">Recession signal</div></div>
+      <div class="ms"><div class="ms-label">CPI YoY</div><div class="ms-value" style="color:var(--gold)">3.1%</div><div class="ms-change"><span class="down">▼</span><span style="color:var(--text2)"> From 3.4%</span></div><div class="ms-sub">Above 2% target</div></div>
+      <div class="ms"><div class="ms-label">WTI Crude</div><div class="ms-value" style="color:var(--oil)">$84.20</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--oil)"> +2.8% Iran</span></div><div class="ms-sub">Geo premium</div></div>
+      <div class="ms"><div class="ms-label">Gold Spot</div><div class="ms-value" style="color:var(--gold)">$2,924</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--gold)"> +1.2%</span></div><div class="ms-sub">Near ATH</div></div>
+      <div class="ms"><div class="ms-label">VIX</div><div class="ms-value" style="color:var(--gold)">18.4</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--gold)"> Elevated</span></div><div class="ms-sub">Watch >20</div></div>
+    </div>
+  </div>
+
+  <!-- NEWS PANEL -->
+  <div class="card news-panel">
+    <div class="card-header"><span class="card-title">Intelligence Feed</span><span class="card-badge">REUTERS·FT·BBG·MS</span></div>
+    <div class="source-row">
+      <span class="sbadge active" onclick="fSrc(this,'all')">ALL</span>
+      <span class="sbadge" onclick="fSrc(this,'reuters')">REUTERS</span>
+      <span class="sbadge" onclick="fSrc(this,'ft')">FT</span>
+      <span class="sbadge" onclick="fSrc(this,'bloomberg')">BLOOMBERG</span>
+      <span class="sbadge" onclick="fSrc(this,'morningstar')">MORNINGSTAR</span>
+    </div>
+    <div class="tag-row2">
+      <span class="ftag active" onclick="fTag(this,'all')">All</span>
+      <span class="ftag" onclick="fTag(this,'macro')">Macro</span>
+      <span class="ftag" onclick="fTag(this,'credit')">Credit</span>
+      <span class="ftag" onclick="fTag(this,'oil')">Oil</span>
+      <span class="ftag" onclick="fTag(this,'tech')">Tech</span>
+      <span class="ftag" onclick="fTag(this,'funds')">Funds</span>
+      <span class="ftag" onclick="fTag(this,'europe')">Europe</span>
+    </div>
+    <div class="news-feed" id="newsFeed"></div>
+  </div>
+
+  <!-- US STOCKS -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">US Equities</span><span class="card-badge">WATCHLIST</span></div>
+    <div style="padding:4px 16px;" id="usStocks"></div>
+  </div>
+
+  <!-- COMMODITIES -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Commodities</span><span class="card-badge">SPOT</span></div>
+    <div style="padding:0 16px;" id="commods"></div>
+  </div>
+
+  <!-- FIXED INCOME -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Fixed Income & Rates</span><span class="card-badge">US TREASURY</span></div>
+    <div style="padding:12px 16px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin-bottom:7px;">YIELD CURVE</div>
+      <div class="yield-curve">
+        <div class="yn inv"><div class="yn-tenor">3M</div><div class="yn-rate up">5.44%</div><div class="yn-chg down">-2bp</div></div>
+        <div class="yn inv"><div class="yn-tenor">2Y</div><div class="yn-rate up">4.90%</div><div class="yn-chg down">-4bp</div></div>
+        <div class="yn"><div class="yn-tenor">5Y</div><div class="yn-rate" style="color:var(--gold)">4.52%</div><div class="yn-chg up">+1bp</div></div>
+        <div class="yn norm"><div class="yn-tenor">10Y</div><div class="yn-rate">4.72%</div><div class="yn-chg up">+3bp</div></div>
+        <div class="yn norm"><div class="yn-tenor">30Y</div><div class="yn-rate">4.88%</div><div class="yn-chg up">+2bp</div></div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin:10px 0 6px;">CREDIT SPREADS</div>
+      <div class="spread-row"><span class="sl">IG Corp OAS</span><span style="font-family:var(--mono);font-size:11px;">+98 bps</span><span class="sig sok">TIGHT</span></div>
+      <div class="spread-row"><span class="sl">HY OAS</span><span style="font-family:var(--mono);font-size:11px;">+328 bps</span><span class="sig sc">WATCH</span></div>
+      <div class="spread-row"><span class="sl">2Y/10Y</span><span style="font-family:var(--mono);font-size:11px;">-18 bps</span><span class="sig sw">INVERTED</span></div>
+      <div class="spread-row"><span class="sl">Real Rate (10Y)</span><span style="font-family:var(--mono);font-size:11px;">+2.1%</span><span class="sig sc">RESTRICTIVE</span></div>
+    </div>
+  </div>
+
+  <!-- FUND INTELLIGENCE -->
+  <div class="card fund-panel">
+    <div class="card-header"><span class="card-title">Fund Intelligence — Institutional Flows</span><span class="card-badge">13F · SEC EDGAR · QUARTERLY</span></div>
+    <div class="fund-grid" id="fundGrid"></div>
+    <div class="fund-links">
+      <span class="flink-label">SOURCES:</span>
+      <a class="flink" href="https://whalewisdom.com" target="_blank">WhalewIsdom ↗</a>
+      <a class="flink" href="https://hedgefollow.com" target="_blank">HedgeFollow ↗</a>
+      <a class="flink" href="https://efts.sec.gov/LATEST/search-index?q=%2213F%22" target="_blank">SEC EDGAR 13F ↗</a>
+      <a class="flink" href="https://www.etf.com/etfanalytics/etf-fund-flows-tool" target="_blank">ETF Flows ↗</a>
+      <a class="flink" href="https://www.justetf.com/en/" target="_blank">JustETF ↗</a>
+      <span class="flink-note">13F updates quarterly (45d after quarter end)</span>
+    </div>
+  </div>
+
+  <!-- MACRO CALENDAR -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Macro Calendar</span><span class="card-badge">UPCOMING</span></div>
+    <div style="padding:4px 16px;">
+      <div class="ev-item"><div class="ev-date">Mar 12</div><div><div class="ev-title">US CPI (Feb)</div><span class="ev-imp ih">HIGH</span></div></div>
+      <div class="ev-item"><div class="ev-date">Mar 13</div><div><div class="ev-title">PPI + Retail Sales</div><span class="ev-imp im">MED</span></div></div>
+      <div class="ev-item"><div class="ev-date">Mar 19</div><div><div class="ev-title">FOMC Rate Decision</div><span class="ev-imp ih">HIGH</span></div></div>
+      <div class="ev-item"><div class="ev-date">Mar 22</div><div><div class="ev-title">Flash PMI US + EU</div><span class="ev-imp im">MED</span></div></div>
+      <div class="ev-item"><div class="ev-date">Mar 28</div><div><div class="ev-title">Core PCE Deflator</div><span class="ev-imp ih">HIGH</span></div></div>
+      <div class="ev-item"><div class="ev-date">Apr 7</div><div><div class="ev-title">NFP + Unemployment</div><span class="ev-imp ih">HIGH</span></div></div>
+    </div>
+  </div>
+
+  <!-- SIGNALS -->
+  <div class="card signal-panel">
+    <div class="card-header"><span class="card-title">Research Conviction Board</span><span class="card-badge">ANALYST FRAMEWORK</span></div>
+    <div class="signal-grid" id="sigGrid"></div>
+  </div>
+
+  <!-- EU STOCKS -->
+  <div class="card" style="grid-column:1/3;">
+    <div class="card-header"><span class="card-title">European Equities</span><span class="card-badge">FTSE · DAX · CAC · AMS</span></div>
+    <div style="padding:4px 16px;"><div class="eu-grid" id="euStocks"></div></div>
+  </div>
+
+  <!-- SECTOR -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Sector Exposure</span><span class="card-badge">WATCHLIST</span></div>
+    <div style="padding:12px 16px;">
+      <div class="sec-item"><span class="sec-name">AI / Technology</span><span class="sec-pct">34%</span><div class="sec-bar"><div class="sec-fill" style="width:34%;background:#7c4dff;"></div></div></div>
+      <div class="sec-item"><span class="sec-name">Finance / Banking</span><span class="sec-pct">22%</span><div class="sec-bar"><div class="sec-fill" style="width:22%;background:var(--green);"></div></div></div>
+      <div class="sec-item"><span class="sec-name">Energy / Oil</span><span class="sec-pct">14%</span><div class="sec-bar"><div class="sec-fill" style="width:14%;background:var(--oil);"></div></div></div>
+      <div class="sec-item"><span class="sec-name">Fixed Income</span><span class="sec-pct">16%</span><div class="sec-bar"><div class="sec-fill" style="width:16%;background:var(--accent);"></div></div></div>
+      <div class="sec-item"><span class="sec-name">Gold / Metals</span><span class="sec-pct">9%</span><div class="sec-bar"><div class="sec-fill" style="width:9%;background:var(--gold);"></div></div></div>
+      <div class="sec-item"><span class="sec-name">Real Estate</span><span class="sec-pct">5%</span><div class="sec-bar"><div class="sec-fill" style="width:5%;background:#ff6b9d;"></div></div></div>
+    </div>
+  </div>
+
+</div>
+</div>
+<!-- END OVERVIEW PAGE -->
+
+<!-- EQUITIES PAGE -->
+<div id="equitiesPage" class="tab-page">
+  <div class="page-title">EQUITIES</div>
+  <div class="card" style="padding:0;">
+    <div class="card-header"><span class="card-title">Market Indices</span><span class="card-badge">LIVE % CHANGE</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border);">
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">SPX</div>
+        <div class="display" style="font-family:var(--display);font-size:20px;">5,187</div>
+        <div class="up" style="font-size:10px;">+0.42%</div>
+      </div>
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">NDX</div>
+        <div style="font-family:var(--display);font-size:20px;">18,234</div>
+        <div class="up" style="font-size:10px;">+0.67%</div>
+      </div>
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">DJIA</div>
+        <div style="font-family:var(--display);font-size:20px;">41,220</div>
+        <div class="up" style="font-size:10px;">+0.28%</div>
+      </div>
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">RUT</div>
+        <div style="font-family:var(--display);font-size:20px;">2,148</div>
+        <div class="down" style="font-size:10px;">-0.12%</div>
+      </div>
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">VIX</div>
+        <div style="font-family:var(--display);font-size:20px;color:var(--gold);">18.4</div>
+        <div class="up" style="font-size:10px;">+0.9%</div>
+      </div>
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">DAX</div>
+        <div style="font-family:var(--display);font-size:20px;">18,441</div>
+        <div class="up" style="font-size:10px;">+0.9%</div>
+      </div>
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">FTSE</div>
+        <div style="font-family:var(--display);font-size:20px;">8,312</div>
+        <div class="up" style="font-size:10px;">+0.5%</div>
+      </div>
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">Nikkei</div>
+        <div style="font-family:var(--display);font-size:20px;">39,850</div>
+        <div class="down" style="font-size:10px;">-0.4%</div>
+      </div>
+      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
+        <div style="color:var(--text3);margin-bottom:4px;">HSI</div>
+        <div style="font-family:var(--display);font-size:20px;">16,420</div>
+        <div class="up" style="font-size:10px;">+0.7%</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-2col">
+    <div class="card" style="padding:0;overflow-x:auto;">
+      <div class="card-header"><span class="card-title">US Stocks <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('pe')" title="P/E and metrics">i</span></span><span class="card-badge">FULL WATCHLIST</span></div>
+      <table class="full-table" id="usStocksTable">
+        <thead><tr><th>Ticker</th><th>Name</th><th class="num">Price</th><th class="num">Change</th><th class="num">Mkt Cap</th><th class="num">P/E</th><th class="num">EPS Gr</th><th class="num">Revenue</th><th class="num">Div Yld</th><th class="num">52W Range</th><th class="num">Beta</th><th>Rating</th></tr></thead>
+        <tbody id="usStocksBody"></tbody>
+      </table>
+    </div>
+    <div class="card" style="padding:0;overflow-x:auto;">
+      <div class="card-header"><span class="card-title">European Stocks</span><span class="card-badge">FTSE · DAX · CAC</span></div>
+      <table class="full-table" id="euStocksTable">
+        <thead><tr><th>Ticker</th><th>Name</th><th class="num">Price</th><th class="num">Change</th><th class="num">Mkt Cap</th><th class="num">P/E</th><th class="num">EPS Gr</th><th class="num">Revenue</th><th class="num">Div Yld</th><th class="num">52W Range</th><th class="num">Beta</th><th>Rating</th></tr></thead>
+        <tbody id="euStocksBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Sector Performance Heatmap (GICS)</span><span class="card-badge">% CHANGE TODAY</span></div>
+    <div class="heatmap-grid" id="sectorHeatmap"></div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Stock Beta vs Market <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('beta')" title="How is this calculated?">i</span></span><span class="card-badge">S&P 500 BETA</span></div>
+      <div id="betaPanel"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Historical vs Implied Volatility <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('volatility')" title="How is this calculated?">i</span></span><span class="card-badge">TOP HOLDINGS</span></div>
+      <div id="volPanel"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Factor Exposure <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('factor')" title="How is this calculated?">i</span></span><span class="card-badge">VALUE · MOMENTUM · QUALITY · LOW VOL · SIZE</span></div>
+    <div style="overflow-x:auto;"><table class="full-table" id="factorTable"><thead><tr><th>Ticker</th><th class="num">Value</th><th class="num">Momentum</th><th class="num">Quality</th><th class="num">Low Vol</th><th class="num">Size</th></tr></thead><tbody id="factorBody"></tbody></table></div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Correlation Matrix <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('correlation')" title="How is this calculated?">i</span></span><span class="card-badge">TOP 8 HOLDINGS</span></div>
+      <div class="corr-matrix" id="corrMatrix"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Analyst Consensus <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('analyst')" title="How is this calculated?">i</span></span><span class="card-badge">BUY / HOLD / SELL · PT · UPSIDE %</span></div>
+      <div id="analystPanel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MACRO PAGE -->
+<div id="macroPage" class="tab-page">
+  <div class="page-title">MACRO</div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">US Yield Curve <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('yieldCurve')" title="How is this calculated?">i</span></span><span class="card-badge">3M → 30Y · HISTORICAL COMPARISON</span></div>
+    <div class="yield-curve-full" id="yieldCurveFull"></div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:8px;">— Current (solid) vs 6M ago (dashed) · Inversion 2Y/10Y: -18bp</div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Fed Policy Tracker</span><span class="card-badge">RATE HISTORY · DOT PLOT</span></div>
+      <div id="fedTracker"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Inflation Dashboard</span><span class="card-badge">CPI · PCE · PPI · BREAKEVENS</span></div>
+      <div id="inflationDashboard"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Economic Indicators</span><span class="card-badge">GDP · UNEMP · RETAIL · PMI · HOUSING</span></div>
+    <div class="indicator-block" id="econIndicators"></div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Global Central Bank Rates</span><span class="card-badge">FED · ECB · BOE · BOJ · RBA</span></div>
+      <div id="globalRates"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Currency Dashboard</span><span class="card-badge">DXY · MAJORS</span></div>
+      <div id="currencyDashboard"></div>
+    </div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Recession Probability Tracker <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('recession')" title="How is this calculated?">i</span></span><span class="card-badge">YIELD CURVE · CREDIT · PMI</span></div>
+      <div id="recessionTracker"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Geopolitical Risk Monitor</span><span class="card-badge">IRAN · TRADE · CB DIVERGENCE</span></div>
+      <div id="geoRiskMonitor"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FUNDS PAGE -->
+<div id="fundsPage" class="tab-page">
+  <div class="page-title">FUNDS</div>
+  <div id="fundsExpandedContainer"></div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">13F Change Tracker</span><span class="card-badge">BUY · ADD · REDUCE · SELL LAST Q</span></div>
+    <div id="thirteenFTracker"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Fund Flow Aggregator</span><span class="card-badge">NET IN/OUT BY ASSET CLASS</span></div>
+    <div id="flowAggregator"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Institutional Ownership — Watchlist</span><span class="card-badge">CHANGES BY FUND</span></div>
+    <div id="ownershipChanges"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Links</span><span class="card-badge">WHALEWISDOM · SEC · ETF FLOWS</span></div>
+    <div class="fund-links" style="padding:16px;">
+      <a class="flink" href="https://whalewisdom.com" target="_blank">WhalewIsdom ↗</a>
+      <a class="flink" href="https://hedgefollow.com" target="_blank">HedgeFollow ↗</a>
+      <a class="flink" href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&CIK=&type=13F&company=&dateb=&owner=include&count=40" target="_blank">SEC EDGAR 13F ↗</a>
+      <a class="flink" href="https://www.etf.com/etfanalytics/etf-fund-flows-tool" target="_blank">ETF.com Flows ↗</a>
+      <a class="flink" href="https://www.justetf.com/en/" target="_blank">JustETF ↗</a>
+    </div>
+  </div>
+</div>
+
+<!-- FIXED INCOME PAGE -->
+<div id="fixedIncomePage" class="tab-page">
+  <div class="page-title">FIXED INCOME</div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Full Yield Curve</span><span class="card-badge">INTERACTIVE TENOR</span></div>
+    <div class="yield-curve-full" id="fixedYieldCurve"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Global Sovereign Bonds</span><span class="card-badge">US · UK · DE · JP · FR · IT 2Y/10Y/30Y</span></div>
+    <div id="sovereignBonds"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Credit Market Dashboard <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('oas')" title="How is this calculated?">i</span></span><span class="card-badge">IG · HY · EM · CDS</span></div>
+    <div id="creditDashboard"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Bond ETF Tracker</span><span class="card-badge">TLT · AGG · HYG · EMB · LQD</span></div>
+    <div id="bondETFTracker"></div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Private Credit Stress</span><span class="card-badge">BREIT · BLUE OWL REDEMPTIONS</span></div>
+      <div id="privateCreditStress"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Real Rates & TIPS</span><span class="card-badge">TIPS YIELDS · BREAKEVEN INFLATION</span></div>
+      <div id="realRatesDashboard"></div>
+    </div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Fed Balance Sheet Tracker</span><span class="card-badge">ASSETS · QT PACE</span></div>
+      <div id="fedBalanceSheet"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Duration Risk Calculator <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('duration')" title="How is this calculated?">i</span></span><span class="card-badge">+100BP RATE RISE IMPACT</span></div>
+      <div id="durationCalculator"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SIGNALS PAGE -->
+<div id="signalsPage" class="tab-page">
+  <div class="page-title">SIGNALS <span style="font-family:var(--mono);font-size:12px;color:var(--text3);font-weight:normal;letter-spacing:1px;">— latest only · Mar 2026</span></div>
+  <div id="signalsConvictionBoard"></div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Watchlist — Potential New Ideas</span><span class="card-badge">MONITORING</span></div>
+    <div id="signalsWatchlist"></div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Portfolio Risk Metrics</span><span class="card-badge">BETA · SECTOR · GEO</span></div>
+      <div id="portfolioRiskMetrics"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Performance Tracker</span><span class="card-badge">SIGNAL DATE · % RETURN SINCE</span></div>
+      <div id="signalsPerfTracker"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EDUCATION MODAL -->
+<div class="edu-modal" id="eduModal">
+  <div class="edu-modal-inner">
+    <button class="edu-modal-close" onclick="closeEduModal()">✕</button>
+    <div class="edu-title" id="eduModalTitle">—</div>
+    <div class="edu-body" id="eduModalBody">—</div>
+  </div>
+</div>
+
+<!-- FUND MODAL -->
+<div class="fund-modal" id="fundModal">
+  <div class="modal-inner">
+    <button class="modal-close" onclick="closeFundModal()">✕ CLOSE</button>
+    <div class="modal-hdr">
+      <div class="modal-name" id="mName"></div>
+      <div class="modal-mgr" id="mMgr"></div>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="modal-sec-title">FUND OVERVIEW</div>
+        <div id="mStats"></div>
+        <div class="flow-summary">
+          <div class="flow-sum-label">QUARTERLY FUND FLOWS</div>
+          <div class="flow-nums" id="mFlows"></div>
+        </div>
+        <div class="qnote">⚠ 13F holdings update quarterly (45 days post quarter-end).<br>Live tracking: <a class="mlink" href="https://whalewisdom.com" target="_blank">WhalewIsdom ↗</a> · <a class="mlink" href="https://hedgefollow.com" target="_blank">HedgeFollow ↗</a> · <a class="mlink" href="https://efts.sec.gov/LATEST/search-index?q=%2213F%22" target="_blank">SEC EDGAR ↗</a></div>
+      </div>
+      <div>
+        <div class="modal-sec-title">PORTFOLIO ALLOCATION</div>
+        <div id="mAlloc"></div>
+        <div class="modal-sec-title" style="margin-top:14px;">TOP HOLDINGS (13F)</div>
+        <div id="mHoldings"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// CLOCK
+function updateClock(){const n=new Date();document.getElementById('clock').textContent=n.toLocaleString('en-US',{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+' EST';}
+setInterval(updateClock,1000);updateClock();
+
+// NAV TABS — switch between Overview and dedicated tab pages
+const PAGE_IDS = { overview: 'overviewPage', equities: 'equitiesPage', macro: 'macroPage', funds: 'fundsPage', fixedIncome: 'fixedIncomePage', signals: 'signalsPage' };
+document.querySelectorAll('.nav-tab').forEach(t => {
+  t.addEventListener('click', function() {
+    document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+    const page = this.getAttribute('data-page');
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    const el = document.getElementById(PAGE_IDS[page]);
+    if (el) el.classList.add('active');
+    if (page === 'equities') renderEquitiesPage();
+    if (page === 'macro') renderMacroPage();
+    if (page === 'funds') renderFundsPage();
+    if (page === 'fixedIncome') renderFixedIncomePage();
+    if (page === 'signals') renderSignalsPage();
+  });
+});
+
+// ——— API: use finance-ai server (.env keys) first, then finance-ai.js ———
+const APEX_KEYS = window.APEX_KEYS || {};
+const APEX_PROXY = window.APEX_PROXY || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5050' : '');  // '' = same origin when deployed
+
+async function fetchProxyQuote(symbol) {
+  try {
+    const r = await fetch(`${APEX_PROXY}/api/quote?symbol=${encodeURIComponent(symbol)}`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (data && typeof data.price === 'number') return data;
+    return null;
+  } catch (e) { return null; }
+}
+
+// Batch: fetch all quotes from server (uses .env keys)
+async function fetchProxyQuotes(symbols) {
+  if (!symbols.length) return {};
+  try {
+    const r = await fetch(`${APEX_PROXY}/api/quotes?symbols=${encodeURIComponent(symbols.join(','))}`);
+    if (!r.ok) return {};
+    const data = await r.json();
+    return typeof data === 'object' ? data : {};
+  } catch (e) { return {}; }
+}
+
+async function fetchProxyTreasury() {
+  try {
+    const r = await fetch(`${APEX_PROXY}/api/treasury`);
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (j && (j.dgs10 != null || j.dgs2 != null)) return j;
+    return null;
+  } catch (e) { return null; }
+}
+
+async function fetchAlphaVantageQuote(symbol) {
+  if (!APEX_KEYS.alphaVantage) return null;
+  try {
+    const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${APEX_KEYS.alphaVantage}`;
+    const r = await fetch(url);
+    const j = await r.json();
+    const q = j['Global Quote'];
+    if (!q || !q['05. price']) return null;
+    const price = parseFloat(q['05. price']);
+    const prev = parseFloat(q['08. previous close']) || price;
+    const chg = price - prev;
+    const pct = prev ? ((chg / prev) * 100).toFixed(2) : '0';
+    return { price, chg, pct: (chg >= 0 ? '+' : '') + pct + '%', u: chg >= 0 };
+  } catch (e) { return null; }
+}
+
+async function fetchFinnhubQuote(symbol) {
+  if (!APEX_KEYS.finnhub) return null;
+  try {
+    const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${APEX_KEYS.finnhub}`;
+    const r = await fetch(url);
+    const q = await r.json();
+    if (q.c == null) return null;
+    const pct = q.dp != null ? (q.dp >= 0 ? '+' : '') + q.dp.toFixed(2) + '%' : '0%';
+    return { price: q.c, chg: q.d, pct, u: (q.d || 0) >= 0 };
+  } catch (e) { return null; }
+}
+
+async function fetchQuote(symbol) {
+  let data = await fetchProxyQuote(symbol);
+  if (!data) data = await fetchAlphaVantageQuote(symbol);
+  if (!data) data = await fetchFinnhubQuote(symbol);
+  return data;
+}
+
+async function refreshLiveData() {
+  const btn = document.getElementById('refreshBtn');
+  if (btn) { btn.classList.add('loading'); btn.textContent = '…'; }
+  const usSymbols = ['NVDA','MSFT','AAPL','GOOGL','META','JPM','GS','BAC','BX','BLK','XOM','AMD'];
+  const euSymbols = ['ASML','SAP','LVMH','SHEL','HSBA','SIE','TTE','NESN'];
+  const tickerMap = [
+    { bar: 'SPX', api: 'SPY' }, { bar: 'NDX', api: 'QQQ' },
+    { bar: 'NVDA', api: 'NVDA' }, { bar: 'MSFT', api: 'MSFT' }, { bar: 'AAPL', api: 'AAPL' }, { bar: 'META', api: 'META' },
+    { bar: 'JPM', api: 'JPM' }, { bar: 'GS', api: 'GS' }, { bar: 'WTI', api: 'USO' }, { bar: 'GOLD', api: 'GLD' },
+    { bar: 'SILVER', api: 'SLV' }, { bar: 'BTC', api: 'IBIT' }, { bar: 'ASML', api: 'ASML' }
+  ];
+  const commodityMap = [{ name: 'GOLD', api: 'GLD' }, { name: 'SILVER', api: 'SLV' }, { name: 'WTI CRUDE', api: 'USO' }, { name: 'BRENT', api: 'BNO' }];
+  const allApiSymbols = [...usSymbols, ...euSymbols, 'SPY', 'QQQ', 'GLD', 'SLV', 'USO', 'BNO', 'IBIT'];
+  const quotes = await fetchProxyQuotes(allApiSymbols);
+  const treasury = await fetchProxyTreasury();
+
+  // US stocks
+  usSymbols.forEach(s => {
+    const q = quotes[s];
+    if (q) {
+      const idx = USD.findIndex(x => x.s === s);
+      if (idx >= 0) {
+        USD[idx].p = '$' + q.price.toFixed(2);
+        USD[idx].c = q.pct;
+        USD[idx].u = q.u ? 1 : 0;
+      }
+      const fullIdx = typeof US_STOCKS_FULL !== 'undefined' && US_STOCKS_FULL.findIndex(x => x.t === s);
+      if (fullIdx >= 0) {
+        US_STOCKS_FULL[fullIdx].p = '$' + q.price.toFixed(2);
+        US_STOCKS_FULL[fullIdx].chg = q.pct;
+        US_STOCKS_FULL[fullIdx].u = q.u ? 1 : 0;
+      }
+    }
+  });
+
+  // EU stocks
+  euSymbols.forEach(s => {
+    const q = quotes[s];
+    if (q) {
+      const idx = EUD.findIndex(x => x.s === s);
+      if (idx >= 0) {
+        const fmt = s === 'SHEL' || s === 'HSBA' ? '£' : (s === 'NESN' ? 'CHF' : '€');
+        EUD[idx].p = fmt + q.price.toFixed(2);
+        EUD[idx].c = q.pct;
+        EUD[idx].u = q.u ? 1 : 0;
+      }
+    }
+  });
+
+  // Ticker bar (update every occurrence of each symbol)
+  TD.forEach((t, i) => {
+    const m = tickerMap.find(x => x.bar === t.s);
+    if (!m) return;
+    const q = quotes[m.api];
+    if (!q) return;
+    const isDollar = ['GOLD','WTI','BTC','NVDA','MSFT','AAPL','META','JPM','GS'].includes(t.s);
+    TD[i].v = isDollar ? (q.price >= 1000 ? '$' + q.price.toLocaleString('en-US',{maximumFractionDigits:0}) : '$' + q.price.toFixed(2)) : (q.price >= 100 ? q.price.toFixed(0) : q.price.toFixed(2));
+    TD[i].c = q.pct;
+    TD[i].u = q.u ? 1 : 0;
+  });
+
+  // Commodities
+  commodityMap.forEach(({ name, api }) => {
+    const q = quotes[api];
+    if (!q) return;
+    const ci = COMD.findIndex(x => x.name === name || (name === 'WTI CRUDE' && x.name.includes('WTI')));
+    if (ci >= 0) {
+      COMD[ci].price = q.price >= 100 ? '$' + q.price.toFixed(2) : '$' + q.price.toFixed(2);
+      COMD[ci].chg = q.pct;
+      COMD[ci].u = q.u ? 1 : 0;
+    }
+  });
+
+  // Treasury: update overview yield curve (2Y, 10Y, 30Y) from FRED
+  if (treasury) {
+    window.APEX_TREASURY = treasury;
+    document.querySelectorAll('.yn').forEach(yn => {
+      const tenor = yn.querySelector('.yn-tenor');
+      const rateEl = yn.querySelector('.yn-rate');
+      if (!tenor || !rateEl) return;
+      const t = tenor.textContent.trim();
+      if (t === '2Y' && treasury.dgs2 != null) rateEl.textContent = treasury.dgs2.toFixed(2) + '%';
+      if (t === '10Y' && treasury.dgs10 != null) rateEl.textContent = treasury.dgs10.toFixed(2) + '%';
+      if (t === '30Y' && treasury.dgs30 != null) rateEl.textContent = treasury.dgs30.toFixed(2) + '%';
+    });
+  }
+
+  // Re-render UI
+  if (document.getElementById('usStocks')) document.getElementById('usStocks').innerHTML = USD.map(x=>`<div class="stock-row" onclick="qs('${x.s} ${x.n}')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
+  if (document.getElementById('euStocks')) document.getElementById('euStocks').innerHTML = EUD.map(x=>`<div class="stock-row" onclick="qs('${x.s} ${x.n} European stock')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice" style="font-size:11px">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
+  if (document.getElementById('ticker')) document.getElementById('ticker').innerHTML = [...TD,...TD].map(x=>`<div class="ticker-item"><span style="color:var(--text2);font-weight:500">${x.s}</span><span style="color:var(--text)">${x.v}</span><span class="${x.u?'up':'down'}">${x.c}</span></div>`).join('');
+  if (document.getElementById('commods')) document.getElementById('commods').innerHTML = COMD.map(x=>`<div class="com-row" onclick="qs('${x.q}')"><div class="com-icon">${x.icon}</div><div style="flex:1"><div class="com-name" style="color:${x.col}">${x.name}</div><div class="com-unit">${x.unit}</div><div class="com-bar"><div class="com-fill" style="width:${x.w}%;background:linear-gradient(90deg,${x.grad})"></div></div></div><div style="text-align:right"><div class="com-price" style="color:${x.col}">${x.price}</div><div class="${x.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${x.chg}</div><div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${x.range}</div></div></div>`).join('');
+  if (typeof SI !== 'undefined' && SI.eq) SI.eq = [...USD.map(x=>({...x,type:'US EQUITY'})),...EUD.map(x=>({...x,type:'EU EQUITY'}))];
+
+  const lu = document.getElementById('lastUpdated');
+  if (lu) { lu.textContent = 'Updated ' + new Date().toLocaleTimeString(); lu.classList.add('live'); }
+  if (btn) { btn.classList.remove('loading'); btn.textContent = 'REFRESH'; }
+}
+// Initial load: try live data (proxy from finance-ai/server.py .env, or finance-ai.js keys)
+setTimeout(function(){ refreshLiveData(); }, 600);
+
+// ——— EDUCATION CONTENT ———
+const APEX_EDU = {
+  beta: { title: 'Beta (vs S&P 500)', how: 'Regression of stock daily returns on S&P 500 (or SPY) returns over the last 2 years. Beta = covariance(stock, market) / variance(market).', mean: '1.0 = moves with the market. >1 = more volatile (e.g. 1.5 → ~50% more swing). <1 = less volatile. Used for risk and cost-of-equity (CAPM).' },
+  factor: { title: 'Factor exposure', how: 'Scores 0–1 from standard factor definitions: Value (B/P, E/P), Momentum (12‑month minus 1‑month return), Quality (ROE, earnings stability), Low Volatility (realized vol rank), Size (market cap rank).', mean: 'High Value = cheap on book/earnings. High Momentum = recent winners. High Quality = profitable, stable. High Low Vol = less price swing. High Size = large cap.' },
+  correlation: { title: 'Correlation matrix', how: 'Pairwise correlation of daily returns over the past year. Correlation = covariance(A,B) / (σ_A × σ_B). Values between -1 and 1.', mean: 'Near 1 = move together (diversification limited). Near 0 = unrelated. Negative = hedge. Used for portfolio risk and diversification.' },
+  analyst: { title: 'Analyst consensus', how: 'Counts of Buy/Hold/Sell and median price target from sell-side analysts (e.g. Refinitiv, Bloomberg). Upside % = (PT − price) / price.', mean: 'More Buys and high upside = bullish consensus. Watch for dispersion (disagreement) and PT revisions over time.' },
+  pe: { title: 'P/E (price-to-earnings)', how: 'Price per share ÷ earnings per share (TTM). Trailing P/E uses last 12 months; forward P/E uses estimates.', mean: 'Lower P/E can mean cheaper or worse growth. Compare to sector and history. Useless if earnings are negative.' },
+  volatility: { title: 'Historical vs implied volatility', how: 'HV = standard deviation of daily returns (e.g. 20-day or 252-day annualized). IV = from options (e.g. 30-day ATM implied vol).', mean: 'IV > HV often means options are expensive (e.g. event risk). HV shows how much the stock actually moved.' },
+  yieldCurve: { title: 'Yield curve', how: 'Yields on US Treasury bonds by maturity (3M to 30Y). From FRED (DGS3MO, DGS2, DGS10, etc.) or Treasury.gov.', mean: 'Inversion (short > long) often precedes recessions. Steep curve = growth expectations. Real rate = nominal − breakeven inflation.' },
+  duration: { title: 'Duration & +100bp impact', how: 'Duration ≈ % price change for 1% (100bp) parallel yield move. Modified duration from bond/ETF specs or weighted avg of holdings.', mean: 'If duration = 6, a 1% rate rise → ~−6% price. Use to gauge rate risk in bond portfolios.' },
+  recession: { title: 'Recession signals', how: 'Yield curve: 2Y–10Y spread (inverted = negative). Credit: HY OAS widening. PMI: <50 = contraction. Combined models use several inputs.', mean: 'No single signal is perfect. Inversion has historically led recessions by 6–18 months. Use with other data.' },
+  oas: { title: 'OAS (option-adjusted spread)', how: 'Spread over Treasury curve that prices a bond to its market value after adjusting for embedded options. From index providers (e.g. ICE BofA).', mean: 'Wider spread = more credit risk or liquidity premium. IG typically 50–150bp; HY much wider. Watch for sudden widening.' }
+};
+
+function showEduModal(id) {
+  const e = APEX_EDU[id];
+  if (!e) return;
+  document.getElementById('eduModalTitle').textContent = e.title.toUpperCase();
+  document.getElementById('eduModalBody').innerHTML = '<p><strong>How we calculate:</strong> ' + e.how + '</p><p><strong>What it means:</strong> ' + e.mean + '</p>';
+  document.getElementById('eduModal').classList.add('open');
+}
+function closeEduModal() { document.getElementById('eduModal').classList.remove('open'); }
+document.addEventListener('keydown', function(ev) { if (ev.key === 'Escape') closeEduModal(); });
+
+// TICKER
+const TD=[
+  {s:'SPX',v:'5,187',c:'+0.42%',u:1},{s:'NDX',v:'18,234',c:'+0.67%',u:1},
+  {s:'NVDA',v:'$875',c:'+3.2%',u:1},{s:'MSFT',v:'$415',c:'+1.1%',u:1},
+  {s:'AAPL',v:'$179',c:'-0.3%',u:0},{s:'META',v:'$525',c:'+2.1%',u:1},
+  {s:'JPM',v:'$197',c:'-0.6%',u:0},{s:'GS',v:'$442',c:'+0.4%',u:1},
+  {s:'WTI',v:'$84.20',c:'+2.8%',u:1},{s:'GOLD',v:'$2,924',c:'+1.2%',u:1},
+  {s:'SILVER',v:'$32.40',c:'+0.8%',u:1},{s:'DXY',v:'103.4',c:'-0.2%',u:0},
+  {s:'VIX',v:'18.4',c:'+0.9%',u:1},{s:'10Y',v:'4.72%',c:'+3bp',u:1},
+  {s:'DAX',v:'18,441',c:'+0.9%',u:1},{s:'ASML',v:'€752',c:'+1.4%',u:1},
+  {s:'BTC',v:'$67,400',c:'+1.8%',u:1},{s:'EUR/USD',v:'1.084',c:'-0.1%',u:0},
+];
+document.getElementById('ticker').innerHTML=[...TD,...TD].map(x=>`<div class="ticker-item"><span style="color:var(--text2);font-weight:500">${x.s}</span><span style="color:var(--text)">${x.v}</span><span class="${x.u?'up':'down'}">${x.c}</span></div>`).join('');
+
+// NEWS
+const NEWS=[
+  {src:'REUTERS',time:'2h',hl:'Blackstone BREIT redemption requests surge as private credit investors demand liquidity amid rate uncertainty',tags:['credit','funds'],breaking:true},
+  {src:'FT',time:'3h',hl:'Fed officials signal patience as core PCE remains sticky above 2.5%; rate cuts pushed to H2 2026',tags:['macro'],breaking:false},
+  {src:'BLOOMBERG',time:'4h',hl:'NVIDIA data center revenue guidance beats by 12% as hyperscaler AI capex cycle continues unabated',tags:['tech'],breaking:false},
+  {src:'MORNINGSTAR',time:'5h',hl:'Active managers struggle to justify fees; factor-based ETFs capture record $180B inflows in Q1 2026',tags:['funds'],breaking:false},
+  {src:'REUTERS',time:'6h',hl:'Oil rises 2.8% as Iran threatens Strait of Hormuz closure; Saudi Aramco maintains output discipline',tags:['oil'],breaking:false},
+  {src:'FT',time:'7h',hl:'ECB cuts rates 25bps; ASML and SAP lead DAX rally on weaker euro tailwind for European exporters',tags:['macro','europe'],breaking:false},
+  {src:'MORNINGSTAR',time:'8h',hl:'BlackRock reports $2.1B net inflows into quality-value ETFs as rotation away from growth accelerates',tags:['funds'],breaking:false},
+  {src:'BLOOMBERG',time:'10h',hl:'Gold near all-time high at $2,924 as central banks post record 8th consecutive month of net purchases',tags:['macro'],breaking:false},
+  {src:'REUTERS',time:'11h',hl:'JPMorgan Q1 NII guidance disappoints; net interest margin compression accelerates on deposit repricing',tags:['funds'],breaking:false},
+  {src:'FT',time:'13h',hl:'Blue Owl faces elevated redemption pressure in direct lending books; parallels with Blackstone BREIT drawn',tags:['credit'],breaking:false},
+  {src:'MORNINGSTAR',time:'14h',hl:'JustETF: European bond ETFs see €4.2B inflows as investors position for continued ECB easing cycle',tags:['macro','europe'],breaking:false},
+  {src:'BLOOMBERG',time:'16h',hl:'Microsoft Azure reaccelerates to 31% YoY growth; Copilot enterprise seats up 3x quarter-over-quarter',tags:['tech'],breaking:false},
+];
+let curTag='all',curSrc='all';
+function renderNews(){
+  let h=`<div class="geo-alert"><div class="geo-title">⚠ Geopolitical Alert</div><div class="geo-text">Iran–Israel tensions escalating. Strait of Hormuz risk premium embedded in Brent. Watch $90/bbl resistance. Gold safe-haven bid active.</div></div>`;
+  NEWS.filter(n=>(curTag==='all'||n.tags.includes(curTag))&&(curSrc==='all'||n.src.toLowerCase()===curSrc)).forEach(n=>{
+    h+=`<div class="news-item${n.breaking?' breaking':''}">
+      <div class="news-src"><span class="nsrc">${n.src}</span><span class="ntime">${n.time} ago</span></div>
+      <div class="news-hl">${n.hl}</div>
+      <div class="news-tags">${n.tags.map(t=>`<span class="ntag ${t}">${t.toUpperCase()}</span>`).join('')}</div>
+    </div>`;
+  });
+  document.getElementById('newsFeed').innerHTML=h;
+}
+renderNews();
+function fTag(el,t){document.querySelectorAll('.ftag').forEach(x=>x.classList.remove('active'));el.classList.add('active');curTag=t;renderNews();}
+function fSrc(el,s){document.querySelectorAll('.sbadge').forEach(x=>x.classList.remove('active'));el.classList.add('active');curSrc=s;renderNews();}
+
+// US STOCKS
+const USD=[
+  {s:'NVDA',n:'NVIDIA Corp',p:'$875.40',c:'+3.2%',u:1},{s:'MSFT',n:'Microsoft',p:'$415.20',c:'+1.1%',u:1},
+  {s:'AAPL',n:'Apple Inc',p:'$178.90',c:'-0.3%',u:0},{s:'GOOGL',n:'Alphabet',p:'$171.40',c:'+0.8%',u:1},
+  {s:'META',n:'Meta Platforms',p:'$524.60',c:'+2.1%',u:1},{s:'JPM',n:'JPMorgan Chase',p:'$197.30',c:'-0.6%',u:0},
+  {s:'GS',n:'Goldman Sachs',p:'$442.10',c:'+0.4%',u:1},{s:'BAC',n:'Bank of America',p:'$35.80',c:'-0.8%',u:0},
+  {s:'BX',n:'Blackstone',p:'$128.40',c:'-1.2%',u:0},{s:'BLK',n:'BlackRock',p:'$812.20',c:'+0.3%',u:1},
+  {s:'XOM',n:'ExxonMobil',p:'$118.30',c:'+1.9%',u:1},{s:'AMD',n:'Advanced Micro Devices',p:'$182.60',c:'+2.4%',u:1},
+];
+document.getElementById('usStocks').innerHTML=USD.map(x=>`<div class="stock-row" onclick="qs('${x.s} ${x.n}')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
+
+// EU STOCKS
+const EUD=[
+  {s:'ASML',n:'ASML · AMS',p:'€752',c:'+1.4%',u:1},{s:'SAP',n:'SAP SE · DAX',p:'€182',c:'+0.9%',u:1},
+  {s:'LVMH',n:'LVMH · CAC 40',p:'€742',c:'-0.4%',u:0},{s:'SHEL',n:'Shell · FTSE 100',p:'£26.80',c:'+1.8%',u:1},
+  {s:'HSBA',n:'HSBC · FTSE 100',p:'£6.42',c:'+0.6%',u:1},{s:'SIE',n:'Siemens · DAX',p:'€182',c:'+0.7%',u:1},
+  {s:'TTE',n:'TotalEnergies · CAC',p:'€62.40',c:'+2.1%',u:1},{s:'NESN',n:'Nestlé · SMI',p:'CHF94',c:'-0.2%',u:0},
+];
+document.getElementById('euStocks').innerHTML=EUD.map(x=>`<div class="stock-row" onclick="qs('${x.s} ${x.n} European stock')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice" style="font-size:11px">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
+
+// COMMODITIES
+const COMD=[
+  {icon:'🟡',name:'GOLD',unit:'XAU/USD · Troy oz',price:'$2,924',chg:'+1.2%',u:1,w:88,col:'var(--gold)',grad:'#b8860b,var(--gold)',range:'$1,820–$2,950',q:'GOLD XAU safe haven'},
+  {icon:'⚪',name:'SILVER',unit:'XAG/USD · Troy oz',price:'$32.40',chg:'+0.8%',u:1,w:62,col:'var(--silver)',grad:'#888,var(--silver)',range:'$22–$34',q:'SILVER XAG industrial metal'},
+  {icon:'🛢️',name:'WTI CRUDE',unit:'CL1 · Per Barrel',price:'$84.20',chg:'+2.8%',u:1,w:71,col:'var(--oil)',grad:'#cc5500,var(--oil)',range:'$67–$91',q:'WTI crude oil Iran geopolitical'},
+  {icon:'🟤',name:'BRENT',unit:'BZ1 · Per Barrel',price:'$88.60',chg:'+2.4%',u:1,w:74,col:'#cd7f32',grad:'#8b4513,#cd7f32',range:'$71–$95',q:'Brent crude oil OPEC'},
+];
+document.getElementById('commods').innerHTML=COMD.map(x=>`<div class="com-row" onclick="qs('${x.q}')"><div class="com-icon">${x.icon}</div><div style="flex:1"><div class="com-name" style="color:${x.col}">${x.name}</div><div class="com-unit">${x.unit}</div><div class="com-bar"><div class="com-fill" style="width:${x.w}%;background:linear-gradient(90deg,${x.grad})"></div></div></div><div style="text-align:right"><div class="com-price" style="color:${x.col}">${x.price}</div><div class="${x.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${x.chg}</div><div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${x.range}</div></div></div>`).join('');
+
+// FUNDS
+const FUNDS=[
+  {name:'BLACKROCK',mgr:'Larry Fink · $10.0T AUM',style:'Active + Passive',
+   stats:[{k:'Top Holding',v:'AAPL 4.2%'},{k:'US Equity',v:'62%'},{k:'Fixed Income',v:'28%'},{k:'vs Benchmark',v:'+2.1% YTD',u:1}],
+   fi:'$4.2B',fo:'$1.8B',fp:70,pos:1,
+   alloc:[{l:'US Equity',p:62},{l:'Intl Equity',p:18},{l:'Fixed Income',p:28},{l:'Alternatives',p:8},{l:'Cash',p:4}],
+   holdings:[{s:'AAPL',n:'Apple',p:'4.2%'},{s:'MSFT',n:'Microsoft',p:'3.8%'},{s:'NVDA',n:'NVIDIA',p:'3.1%'},{s:'AMZN',n:'Amazon',p:'2.9%'},{s:'GOOGL',n:'Alphabet',p:'2.7%'}]},
+  {name:'BLACKSTONE',mgr:'Steve Schwarzman · $1.1T AUM',style:'Private Markets',
+   stats:[{k:'Focus',v:'Private Credit/RE'},{k:'Real Estate',v:'38%'},{k:'Private Equity',v:'29%'},{k:'BREIT Status',v:'⚠ Redemptions',u:0}],
+   fi:'$1.1B',fo:'$3.8B',fp:22,pos:0,
+   alloc:[{l:'Real Estate',p:38},{l:'Private Equity',p:29},{l:'Credit',p:22},{l:'Hedge Funds',p:8},{l:'Infrastructure',p:3}],
+   holdings:[{s:'BREIT',n:'Real Estate Trust',p:'38%'},{s:'BCP',n:'Corp Priv Equity',p:'29%'},{s:'BCRED',n:'Credit',p:'22%'},{s:'BIP',n:'Infrastructure',p:'3%'},{s:'BXPE',n:'Private Equity',p:'8%'}]},
+  {name:'VANGUARD',mgr:'Salim Ramji · $9.3T AUM',style:'Passive Index',
+   stats:[{k:'Top Fund',v:'VTI / VOO'},{k:'Equity',v:'72%'},{k:'Bonds',v:'24%'},{k:'Expense Ratio',v:'0.03%',u:1}],
+   fi:'$8.4B',fo:'$1.4B',fp:85,pos:1,
+   alloc:[{l:'US Equity',p:55},{l:'Intl Equity',p:17},{l:'US Bonds',p:18},{l:'Intl Bonds',p:6},{l:'Cash',p:4}],
+   holdings:[{s:'VTI',n:'Total Market ETF',p:'28%'},{s:'VOO',n:'S&P 500 ETF',p:'22%'},{s:'BND',n:'Bond ETF',p:'18%'},{s:'VXUS',n:'Intl ETF',p:'12%'},{s:'VGT',n:'Tech ETF',p:'6%'}]},
+  {name:'BRIDGEWATER',mgr:'Greg Jensen · $124B AUM',style:'Macro / All Weather',
+   stats:[{k:'Strategy',v:'Risk Parity'},{k:'Gold Alloc',v:'+7.5%',u:1},{k:'Bonds',v:'45%'},{k:'vs Benchmark',v:'-1.2% YTD',u:0}],
+   fi:'$0.6B',fo:'$0.8B',fp:43,pos:0,
+   alloc:[{l:'Bonds (Long)',p:45},{l:'Equity',p:22},{l:'Gold',p:7},{l:'Commodities',p:14},{l:'EM Debt',p:12}],
+   holdings:[{s:'TLT',n:'Long-Term Bonds',p:'45%'},{s:'SPY',n:'US Equity',p:'22%'},{s:'GLD',n:'Gold',p:'7.5%'},{s:'DBC',n:'Commodities',p:'14%'},{s:'EMB',n:'EM Bonds',p:'12%'}]},
+  {name:'ARK INVEST',mgr:'Cathie Wood · $14B AUM',style:'Active Disruptive Growth',
+   stats:[{k:'Top Fund',v:'ARKK'},{k:'AI/Tech',v:'68%'},{k:'Top Pick',v:'TSLA 12%'},{k:'vs Nasdaq',v:'-8.4% YTD',u:0}],
+   fi:'$0.3B',fo:'$1.2B',fp:20,pos:0,
+   alloc:[{l:'AI/Robotics',p:34},{l:'EV/Transport',p:20},{l:'Genomics',p:18},{l:'Fintech',p:16},{l:'Space',p:12}],
+   holdings:[{s:'TSLA',n:'Tesla',p:'12%'},{s:'COIN',n:'Coinbase',p:'8%'},{s:'ROKU',n:'Roku',p:'6%'},{s:'EXAS',n:'Exact Sciences',p:'5%'},{s:'PACB',n:'Pacific Bio',p:'4%'}]},
+  {name:'BLUE OWL',mgr:'Doug Ostrover · $235B AUM',style:'Direct Lending / Private Credit',
+   stats:[{k:'Focus',v:'Private Credit'},{k:'Direct Lending',v:'91%'},{k:'Yield',v:'11.2%',u:1},{k:'Redemptions',v:'⚠ Elevated',u:0}],
+   fi:'$0.8B',fo:'$2.9B',fp:21,pos:0,
+   alloc:[{l:'Direct Lending',p:91},{l:'GP Stakes',p:5},{l:'Real Estate',p:3},{l:'Liquid Credit',p:1},{l:'Other',p:0}],
+   holdings:[{s:'OBDC',n:'Blue Owl Dev Corp',p:'45%'},{s:'OBDE',n:'Dev Corp III',p:'28%'},{s:'OBDC2',n:'Dev Corp II',p:'18%'},{s:'GPST',n:'GP Stakes',p:'5%'},{s:'REPE',n:'Real Estate',p:'4%'}]},
+];
+document.getElementById('fundGrid').innerHTML=FUNDS.map((f,i)=>`
+  <div class="fund-card" onclick="openFund(${i})">
+    <div class="fn">${f.name}</div><div class="fm">${f.mgr}</div>
+    ${f.stats.map(s=>`<div class="fsr"><span class="fsk">${s.k}</span><span class="fsv ${s.u===1?'up':s.u===0?'down':''}">${s.v}</span></div>`).join('')}
+    <div class="fund-flow"><span class="fi">▲${f.fi}</span><div class="fbar"><div class="fbar-fill" style="width:${f.fp}%;background:${f.pos?'var(--green)':'var(--red)'};${f.pos?'left:0':'right:0;left:auto'}"></div></div><span class="fo">▼${f.fo}</span></div>
+  </div>`).join('');
+
+function openFund(i){
+  const f=FUNDS[i];
+  document.getElementById('mName').textContent=f.name;
+  document.getElementById('mMgr').textContent=f.mgr+' · '+f.style;
+  document.getElementById('mStats').innerHTML=f.stats.map(s=>`<div class="mstat"><span class="msk">${s.k}</span><span class="msv ${s.u===1?'up':s.u===0?'down':''}">${s.v}</span></div>`).join('');
+  document.getElementById('mFlows').innerHTML=`<span class="fi">INFLOWS: ${f.fi}</span><span class="fo">OUTFLOWS: ${f.fo}</span>`;
+  document.getElementById('mAlloc').innerHTML=f.alloc.map(a=>`<div class="alloc-row"><span class="al">${a.l}</span><span class="ap">${a.p}%</span><div class="abar"><div class="afill" style="width:${a.p}%"></div></div></div>`).join('');
+  document.getElementById('mHoldings').innerHTML=f.holdings.map(h=>`<div class="holding-item"><span class="hs">${h.s}</span><span class="hn">${h.n}</span><span class="hp">${h.p}</span></div>`).join('');
+  document.getElementById('fundModal').classList.add('open');
+}
+function closeFundModal(){document.getElementById('fundModal').classList.remove('open');}
+
+// SIGNALS — latest only (Mar 2026 / Q1 2026 context)
+const SIGS=[
+  {t:'NVDA',r:'BUY',rc:'rb',pt:'$1,100',now:'$875',up:'+25.7%',u:1,th:'AI capex supercycle intact. Blackwell demand through 2026; latest earnings and guide support thesis.'},
+  {t:'MSFT',r:'BUY',rc:'rb',pt:'$520',now:'$415',up:'+25.3%',u:1,th:'Azure + Copilot monetization accelerating. Best enterprise AI platform at scale (latest quarter).'},
+  {t:'JPM',r:'HOLD',rc:'rh',pt:'$195',now:'$197',up:'-1.0%',u:0,th:'NII compression risk as rates peak. Fortress balance sheet limits downside. Latest macro drives view.'},
+  {t:'XOM',r:'WATCH',rc:'rw',pt:'$130',now:'$118',up:'+10.2%',u:1,th:'Iran geo premium + disciplined capex. Tactical entry on latest crude/OPEC setup.'},
+  {t:'GLD',r:'BUY',rc:'rb',pt:'$220',now:'$194',up:'+13.4%',u:1,th:'CB accumulation + real rate plateau + geopolitical hedging. Thesis intact on latest data.'},
+  {t:'BX',r:'HOLD',rc:'rh',pt:'$140',now:'$128',up:'+9.4%',u:1,th:'BREIT redemption overhang. Watch for stabilization; view based on latest flows and distrib.'},
+];
+document.getElementById('sigGrid').innerHTML=SIGS.map(s=>`
+  <div class="sig-item" onclick="qs('${s.t} stock analysis valuation')">
+    <div class="si-ticker">${s.t}</div>
+    <div class="si-rating ${s.rc}">${s.r}</div>
+    <div class="si-target">PT: ${s.pt} | Now: ${s.now}</div>
+    <div class="${s.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${s.u?'▲':'▼'} ${s.up}</div>
+    <div class="si-thesis">${s.th}</div>
+  </div>`).join('');
+
+// ——— EQUITIES PAGE DATA ———
+const US_STOCKS_FULL = [
+  {t:'NVDA',n:'NVIDIA Corp',p:'$875.40',chg:'+3.2%',u:1,mcap:'$2.16T',pe:'68.4x',epsg:'+486%',rev:'$79.8B',div:'0.03%',r52:'$461–$974',beta:'1.42',rating:'Buy'},
+  {t:'MSFT',n:'Microsoft',p:'$415.20',chg:'+1.1%',u:1,mcap:'$3.08T',pe:'35.2x',epsg:'+22%',rev:'$245B',div:'0.72%',r52:'$310–$465',beta:'0.98',rating:'Buy'},
+  {t:'AAPL',n:'Apple Inc',p:'$178.90',chg:'-0.3%',u:0,mcap:'$2.78T',pe:'28.1x',epsg:'+8%',rev:'$383B',div:'0.52%',r52:'$164–$199',beta:'1.24',rating:'Hold'},
+  {t:'GOOGL',n:'Alphabet',p:'$171.40',chg:'+0.8%',u:1,mcap:'$2.14T',pe:'26.4x',epsg:'+18%',rev:'$307B',div:'0.46%',r52:'$125–$178',beta:'1.08',rating:'Buy'},
+  {t:'META',n:'Meta Platforms',p:'$524.60',chg:'+2.1%',u:1,mcap:'$1.34T',pe:'24.2x',epsg:'+42%',rev:'$134B',div:'0.38%',r52:'$298–$535',beta:'1.31',rating:'Buy'},
+  {t:'JPM',n:'JPMorgan Chase',p:'$197.30',chg:'-0.6%',u:0,mcap:'$568B',pe:'10.2x',epsg:'+12%',rev:'$158B',div:'2.44%',r52:'$141–$211',beta:'1.12',rating:'Hold'},
+  {t:'GS',n:'Goldman Sachs',p:'$442.10',chg:'+0.4%',u:1,mcap:'$152B',pe:'11.8x',epsg:'+8%',rev:'$46B',div:'2.71%',r52:'$312–$458',beta:'1.28',rating:'Buy'},
+  {t:'BAC',n:'Bank of America',p:'$35.80',chg:'-0.8%',u:0,mcap:'$284B',pe:'12.4x',epsg:'+6%',rev:'$98B',div:'2.68%',r52:'$28–$42',beta:'1.35',rating:'Hold'},
+  {t:'BX',n:'Blackstone',p:'$128.40',chg:'-1.2%',u:0,mcap:'$91B',pe:'18.2x',epsg:'-4%',rev:'$8.2B',div:'3.12%',r52:'$98–$142',beta:'1.48',rating:'Hold'},
+  {t:'BLK',n:'BlackRock',p:'$812.20',chg:'+0.3%',u:1,mcap:'$122B',pe:'19.4x',epsg:'+14%',rev:'$19.2B',div:'2.56%',r52:'$682–$985',beta:'1.22',rating:'Buy'},
+  {t:'XOM',n:'ExxonMobil',p:'$118.30',chg:'+1.9%',u:1,mcap:'$472B',pe:'11.2x',epsg:'-8%',rev:'$344B',div:'3.38%',r52:'$95–$125',beta:'1.08',rating:'Hold'},
+  {t:'AMD',n:'Advanced Micro Devices',p:'$182.60',chg:'+2.4%',u:1,mcap:'$295B',pe:'42.1x',epsg:'+120%',rev:'$22.7B',div:'—',r52:'$92–$227',beta:'1.62',rating:'Buy'},
+];
+const EU_STOCKS_FULL = [
+  {t:'ASML',n:'ASML Holding',p:'€752',chg:'+1.4%',u:1,mcap:'€312B',pe:'48.2x',epsg:'+28%',rev:'€27.6B',div:'0.64%',r52:'€520–€890',beta:'1.38',rating:'Buy'},
+  {t:'SAP',n:'SAP SE',p:'€182',chg:'+0.9%',u:1,mcap:'€218B',pe:'32.1x',epsg:'+15%',rev:'€34.2B',div:'1.21%',r52:'€142–€198',beta:'1.12',rating:'Buy'},
+  {t:'LVMH',n:'LVMH Moët Hennessy',p:'€742',chg:'-0.4%',u:0,mcap:'€382B',pe:'24.8x',epsg:'+6%',rev:'€86B',div:'1.48%',r52:'€648–€920',beta:'1.05',rating:'Hold'},
+  {t:'SHEL',n:'Shell plc',p:'£26.80',chg:'+1.8%',u:1,mcap:'£212B',pe:'8.2x',epsg:'-12%',rev:'£265B',div:'4.10%',r52:'£22–£32',beta:'0.92',rating:'Buy'},
+  {t:'HSBA',n:'HSBC Holdings',p:'£6.42',chg:'+0.6%',u:1,mcap:'£124B',pe:'7.8x',epsg:'+18%',rev:'£52B',div:'6.24%',r52:'£5.2–£7.8',beta:'0.88',rating:'Buy'},
+  {t:'SIE',n:'Siemens AG',p:'€182',chg:'+0.7%',u:1,mcap:'€148B',pe:'18.4x',epsg:'+22%',rev:'€77B',div:'2.75%',r52:'€138–€198',beta:'1.18',rating:'Buy'},
+  {t:'TTE',n:'TotalEnergies',p:'€62.40',chg:'+2.1%',u:1,mcap:'€152B',pe:'7.6x',epsg:'-5%',rev:'€218B',div:'4.82%',r52:'€52–€72',beta:'0.95',rating:'Buy'},
+  {t:'NESN',n:'Nestlé SA',p:'CHF94',chg:'-0.2%',u:0,mcap:'CHF268B',pe:'22.1x',epsg:'+4%',rev:'CHF94B',div:'2.98%',r52:'CHF88–CHF108',beta:'0.62',rating:'Hold'},
+];
+const GICS_SECTORS = [
+  {n:'Energy',pct:2.1,u:1},{n:'Materials',pct:0.8,u:1},{n:'Industrials',pct:1.2,u:1},{n:'Consumer Disc',pct:-0.4,u:0},{n:'Consumer Staples',pct:0.5,u:1},
+  {n:'Health Care',pct:0.9,u:1},{n:'Financials',pct:-0.2,u:0},{n:'IT',pct:0.67,u:1},{n:'Comm Services',pct:0.45,u:1},{n:'Utilities',pct:0.3,u:1},{n:'Real Estate',pct:-0.6,u:0},
+];
+const BETA_DATA = [{t:'NVDA',b:1.42},{t:'MSFT',b:0.98},{t:'AAPL',b:1.24},{t:'META',b:1.31},{t:'JPM',b:1.12},{t:'SPY',b:1.0}];
+const VOL_DATA = [{t:'NVDA',hv:42,iv:48},{t:'MSFT',hv:22,iv:24},{t:'AAPL',hv:18,iv:20},{t:'META',hv:28,iv:30}];
+const FACTOR_DATA = [
+  {t:'NVDA',val:0.2,mom:0.95,qual:0.88,lowv:0.3,size:0.98},{t:'MSFT',val:0.5,mom:0.72,qual:0.92,lowv:0.6,size:0.99},
+  {t:'AAPL',val:0.4,mom:0.45,qual:0.90,lowv:0.7,size:0.99},{t:'JPM',val:0.85,mom:0.55,qual:0.82,lowv:0.5,size:0.95},
+  {t:'XOM',val:0.90,mom:0.35,qual:0.78,lowv:0.65,size:0.98},{t:'META',val:0.35,mom:0.82,qual:0.85,lowv:0.4,size:0.98},
+];
+const CORR_TICKERS = ['NVDA','MSFT','AAPL','META','JPM','GOOGL','XOM','AMD'];
+const CORR_MATRIX = [[1,0.72,0.68,0.75,0.45,0.71,0.22,0.82],[0.72,1,0.65,0.68,0.52,0.78,0.28,0.69],[0.68,0.65,1,0.62,0.58,0.64,0.35,0.66],[0.75,0.68,0.62,1,0.42,0.70,0.25,0.74],[0.45,0.52,0.58,0.42,1,0.48,0.55,0.44],[0.71,0.78,0.64,0.70,0.48,1,0.26,0.68],[0.22,0.28,0.35,0.25,0.55,0.26,1,0.24],[0.82,0.69,0.66,0.74,0.44,0.68,0.24,1]];
+const ANALYST_DATA = [
+  {t:'NVDA',buy:42,hold:4,sell:0,pt:'$1,100',up:25.7},{t:'MSFT',buy:38,hold:6,sell:0,pt:'$520',up:25.3},{t:'JPM',buy:12,hold:18,sell:2,pt:'$195',up:-1.0},{t:'XOM',buy:8,hold:14,sell:3,pt:'$130',up:10.2},
+  {t:'AAPL',buy:22,hold:12,sell:1,pt:'$210',up:17.4},{t:'META',buy:35,hold:5,sell:0,pt:'$580',up:10.5},
+];
+
+function renderEquitiesPage(){
+  document.getElementById('usStocksBody').innerHTML = US_STOCKS_FULL.map(r=>`<tr><td style="color:var(--accent);font-weight:600">${r.t}</td><td>${r.n}</td><td class="num">${r.p}</td><td class="num ${r.u?'up':'down'}">${r.chg}</td><td class="num">${r.mcap}</td><td class="num">${r.pe}</td><td class="num ${r.u?'up':'down'}">${r.epsg}</td><td class="num">${r.rev}</td><td class="num">${r.div}</td><td class="num" style="font-size:10px">${r.r52}</td><td class="num">${r.beta}</td><td>${r.rating}</td></tr>`).join('');
+  document.getElementById('euStocksBody').innerHTML = EU_STOCKS_FULL.map(r=>`<tr><td style="color:var(--accent);font-weight:600">${r.t}</td><td>${r.n}</td><td class="num">${r.p}</td><td class="num ${r.u?'up':'down'}">${r.chg}</td><td class="num">${r.mcap}</td><td class="num">${r.pe}</td><td class="num ${r.u?'up':'down'}">${r.epsg}</td><td class="num">${r.rev}</td><td class="num">${r.div}</td><td class="num" style="font-size:10px">${r.r52}</td><td class="num">${r.beta}</td><td>${r.rating}</td></tr>`).join('');
+  document.getElementById('sectorHeatmap').innerHTML = GICS_SECTORS.map(s=>{
+    const intensity = Math.min(100, Math.abs(s.pct)*50); const bg = s.u ? `rgba(0,230,118,${0.15+intensity/200})` : `rgba(255,68,68,${0.15+intensity/200})`;
+    return `<div class="heatmap-cell" style="background:${bg}"><div class="label">${s.n}</div><div class="pct ${s.u?'up':'down'}">${s.pct>0?'+':''}${s.pct}%</div></div>`;
+  }).join('');
+  document.getElementById('betaPanel').innerHTML = BETA_DATA.map(x=>`<div class="metric-row"><span>${x.t}</span><span>Beta ${x.b}</span><div class="meter-bar" style="max-width:120px"><div class="meter-fill" style="width:${Math.min(100,x.b*50)}%;background:var(--accent)"></div></div></div>`).join('');
+  document.getElementById('volPanel').innerHTML = VOL_DATA.map(x=>`<div class="metric-row"><span>${x.t}</span><span>HV ${x.hv}% · IV ${x.iv}%</span><span class="${x.iv>x.hv?'up':'down'}">${x.iv>x.hv?'IV>HV':''}</span></div>`).join('');
+  document.getElementById('factorBody').innerHTML = FACTOR_DATA.map(r=>`<tr><td style="color:var(--accent)">${r.t}</td><td class="num">${r.val.toFixed(2)}</td><td class="num">${r.mom.toFixed(2)}</td><td class="num">${r.qual.toFixed(2)}</td><td class="num">${r.lowv.toFixed(2)}</td><td class="num">${r.size.toFixed(2)}</td></tr>`).join('');
+  let corrHtml = '<div style="display:grid;grid-template-columns:repeat(9,1fr);gap:0;max-width:100%">';
+  corrHtml += '<div class="corr-cell header"></div>';
+  CORR_TICKERS.forEach(t=>corrHtml+=`<div class="corr-cell header">${t}</div>`);
+  for(let i=0;i<CORR_TICKERS.length;i++){
+    corrHtml += `<div class="corr-cell header">${CORR_TICKERS[i]}</div>`;
+    for(let j=0;j<CORR_TICKERS.length;j++){ const v=CORR_MATRIX[i][j]; const cls = v>=0.7 ? 'none' : ''; corrHtml+=`<div class="corr-cell ${cls}">${v.toFixed(2)}</div>`; }
+  }
+  corrHtml += '</div>';
+  document.getElementById('corrMatrix').innerHTML = corrHtml;
+  document.getElementById('analystPanel').innerHTML = ANALYST_DATA.map(a=>`<div class="metric-row"><span style="color:var(--accent)">${a.t}</span><span>B ${a.buy} / H ${a.hold} / S ${a.sell}</span></div><div class="metric-row"><span>PT ${a.pt}</span><span class="${a.up>=0?'up':'down'}">${a.up>=0?'+':''}${a.up}% upside</span></div>`).join('');
+}
+
+// ——— MACRO PAGE ———
+const YIELD_CURVE_FULL = [{t:'3M',r:5.44,c:-2,u:0},{t:'6M',r:5.38,c:-1,u:0},{t:'1Y',r:5.12,c:0,u:1},{t:'2Y',r:4.90,c:-4,u:0},{t:'3Y',r:4.68,c:-2,u:0},{t:'5Y',r:4.52,c:1,u:1},{t:'7Y',r:4.58,c:2,u:1},{t:'10Y',r:4.72,c:3,u:1},{t:'20Y',r:4.82,c:2,u:1},{t:'30Y',r:4.88,c:2,u:1}];
+const FED_TRACKER = [{l:'Last decision',v:'Held 5.33%',d:'Mar 19'},{l:'Dot plot median',v:'4.75%',d:'Dec 26'},{l:'Prob next cut',v:'62%',d:'May'},{l:'Prob next hike',v:'5%',d:'—'}];
+const INFLATION_DATA = [{l:'CPI Headline',v:'3.1%',c:'-0.3pp',u:0},{l:'CPI Core',v:'3.4%',c:'-0.2pp',u:0},{l:'Shelter',v:'5.2%',c:'sticky',u:1},{l:'Energy',v:'-1.8%',c:'-',u:0},{l:'Food',v:'2.4%',c:'+0.1pp',u:1},{l:'PCE Core',v:'2.8%',c:'Above 2%',u:1},{l:'PPI',v:'1.6%',c:'+0.2pp',u:1},{l:'5Y Breakeven',v:'2.42%',c:'+4bp',u:1}];
+const ECON_INDICATORS = [{l:'GDP Growth',v:'2.8%',c:'Q4 annualized',u:1},{l:'Unemployment',v:'3.9%',c:'+0.1pp',u:0},{l:'Retail Sales',v:'+0.6%',c:'MoM',u:1},{l:'PMI Mfg',v:'49.2',c:'Contraction',u:0},{l:'PMI Services',v:'52.1',c:'Expansion',u:1},{l:'Housing Starts',v:'1.42M',c:'+2.1%',u:1}];
+const GLOBAL_RATES = [{c:'Fed',r:'5.33%',d:'Held'},{c:'ECB',r:'3.75%',d:'-25bp'},{c:'BOE',r:'5.25%',d:'Held'},{c:'BOJ',r:'0.10%',d:'Held'},{c:'RBA',r:'4.35%',d:'Held'}];
+const CURRENCY_DATA = [{p:'DXY',v:'103.4',chg:'-0.2%',u:0},{p:'EUR/USD',v:'1.084',chg:'+0.1%',u:1},{p:'GBP/USD',v:'1.264',chg:'+0.05%',u:1},{p:'USD/JPY',v:'149.2',chg:'-0.3%',u:0},{p:'USD/CNY',v:'7.24',chg:'+0.1%',u:1}];
+const RECESSION_SIGNALS = [{s:'Yield curve (2Y/10Y)',v:'INVERTED',st:'sn'},{s:'Credit spread (HY OAS)',v:'+328bp WATCH',st:'se'},{s:'PMI Manufacturing',v:'49.2 Contraction',st:'sn'},{s:'Combined prob',v:'~38%',st:'se'}];
+const GEO_RISK = [{t:'Iran / Oil',d:'Strait risk premium in Brent. Watch $90.'},{t:'Trade tensions',d:'Tariff rhetoric; supply chain shifts.'},{t:'CB divergence',d:'Fed hold vs ECB cut; USD strength.'}];
+
+function renderMacroPage(){
+  document.getElementById('yieldCurveFull').innerHTML = YIELD_CURVE_FULL.map(y=>`<div class="yield-point"><div class="tenor">${y.t}</div><div class="rate ${y.u?'up':'down'}">${y.r}%</div><div class="chg ${y.u?'up':'down'}">${y.c>0?'+':''}${y.c}bp</div></div>`).join('');
+  document.getElementById('fedTracker').innerHTML = FED_TRACKER.map(f=>`<div class="metric-row"><span>${f.l}</span><span>${f.v}</span><span style="color:var(--text3)">${f.d}</span></div>`).join('');
+  document.getElementById('inflationDashboard').innerHTML = INFLATION_DATA.map(i=>`<div class="metric-row"><span>${i.l}</span><span>${i.v}</span><span class="${i.u?'up':'down'}">${i.c}</span></div>`).join('');
+  document.getElementById('econIndicators').innerHTML = ECON_INDICATORS.map(e=>`<div class="indicator-item"><div class="l">${e.l}</div><div class="v">${e.v}</div><div class="c ${e.u?'up':'down'}">${e.c}</div></div>`).join('');
+  document.getElementById('globalRates').innerHTML = GLOBAL_RATES.map(g=>`<div class="metric-row"><span>${g.c}</span><span style="font-family:var(--display);font-size:18px">${g.r}</span><span style="color:var(--text3)">${g.d}</span></div>`).join('');
+  document.getElementById('currencyDashboard').innerHTML = CURRENCY_DATA.map(c=>`<div class="metric-row"><span style="color:var(--accent)">${c.p}</span><span>${c.v}</span><span class="${c.u?'up':'down'}">${c.chg}</span></div>`).join('');
+  document.getElementById('recessionTracker').innerHTML = RECESSION_SIGNALS.map(r=>`<div class="metric-row"><span>${r.s}</span><span class="dp-sig ${r.st}">${r.v}</span></div>`).join('');
+  document.getElementById('geoRiskMonitor').innerHTML = GEO_RISK.map(g=>`<div class="metric-row"><span style="color:var(--gold)">${g.t}</span><span style="font-size:10px;color:var(--text2)">${g.d}</span></div>`).join('');
+}
+
+// ——— FUNDS PAGE ———
+function renderFundsPage(){
+  let html = '';
+  FUNDS.forEach((f, i) => {
+    const top20 = [...(f.holdings||[]),...Array(15).fill(null).map((_,j)=>({s:`HOLD${j+6}`,n:'Holding '+(j+6),p:(5-j*0.2).toFixed(1)+'%'}))].slice(0,20);
+    html += `<div class="fund-expanded"><div class="fex-header"><span class="fex-name">${f.name}</span><span class="card-badge">${f.style}</span></div><div class="fex-body">`;
+    html += `<div><div class="fex-section-title">ALLOCATION</div>${f.alloc.map(a=>`<div class="alloc-row"><span class="al">${a.l}</span><span class="ap">${a.p}%</span><div class="abar"><div class="afill" style="width:${Math.min(100,a.p)}%"></div></div></div>`).join('')}`;
+    html += `<div class="fex-section-title">TOP 20 HOLDINGS</div>${top20.map(h=>`<div class="holding-item"><span class="hs">${h.s}</span><span class="hn">${h.n}</span><span class="hp">${h.p}</span></div>`).join('')}`;
+    html += `<div class="fex-section-title">QUARTERLY FLOWS</div><div class="flow-summary"><div class="flow-nums"><span class="fi">IN ${f.fi}</span><span class="fo">OUT ${f.fo}</span></div></div>`;
+    html += `<div class="fex-section-title">MANAGER & PHILOSOPHY</div><div style="font-size:11px;color:var(--text2);line-height:1.5">${f.mgr}. ${f.style}. Performance vs benchmark: see 13F filings.</div></div>`;
+    html += `<div><div class="fex-section-title">13F CHANGES (LAST Q)</div><div class="mstat"><span class="msk">BUY/ADD</span><span class="msv">See WhalewIsdom</span></div><div class="mstat"><span class="msk">REDUCE/SELL</span><span class="msv">See SEC EDGAR</span></div></div></div></div>`;
+  });
+  document.getElementById('fundsExpandedContainer').innerHTML = html;
+  const changes = [{fund:'BlackRock',sym:'NVDA',act:'ADD',chg:'+2.1%'},{fund:'BlackRock',sym:'AAPL',act:'REDUCE',chg:'-0.8%'},{fund:'Bridgewater',sym:'GLD',act:'BUY',chg:'+7.5%'},{fund:'ARK',sym:'TSLA',act:'HOLD',chg:'0%'},{fund:'Blue Owl',sym:'OBDC',act:'—',chg:'—'}];
+  document.getElementById('thirteenFTracker').innerHTML = `<table class="full-table"><thead><tr><th>Fund</th><th>Ticker</th><th>Action</th><th>Change</th></tr></thead><tbody>${changes.map(c=>`<tr><td>${c.fund}</td><td style="color:var(--accent)">${c.sym}</td><td>${c.act}</td><td class="${c.chg.startsWith('-')?'down':'up'}">${c.chg}</td></tr>`).join('')}</tbody></table>`;
+  document.getElementById('flowAggregator').innerHTML = `<div class="metric-row"><span>US Equity</span><span class="up">+$12.4B net</span></div><div class="metric-row"><span>Fixed Income</span><span class="up">+$8.2B</span></div><div class="metric-row"><span>Private Credit / RE</span><span class="down">-$4.1B</span></div><div class="metric-row"><span>Commodities / Gold</span><span class="up">+$1.2B</span></div>`;
+  document.getElementById('ownershipChanges').innerHTML = USD.slice(0,6).map(s=>`<div class="metric-row"><span style="color:var(--accent)">${s.s}</span><span>${s.n}</span><span>Institutional +0.2% QoQ (agg)</span></div>`).join('');
+}
+
+// ——— FIXED INCOME PAGE ———
+const FIXED_YIELD = [{t:'3M',r:5.44},{t:'6M',r:5.38},{t:'1Y',r:5.12},{t:'2Y',r:4.90},{t:'5Y',r:4.52},{t:'10Y',r:4.72},{t:'30Y',r:4.88}];
+const SOVEREIGN = [{c:'US',y2:4.90,y10:4.72,y30:4.88},{c:'UK',y2:4.42,y10:4.28,y30:4.55},{c:'Germany',y2:2.88,y10:2.52,y30:2.68},{c:'Japan',y2:0.28,y10:0.95,y30:1.82},{c:'France',y2:3.12,y10:2.88,y30:3.22},{c:'Italy',y2:3.82,y10:3.68,y30:4.12}];
+const CREDIT_MKT = [{n:'IG OAS',v:'+98 bps',st:'sok'},{n:'HY OAS',v:'+328 bps',st:'sc'},{n:'EM Spread',v:'+285 bps',st:'sc'},{n:'CDX IG',v:'62 bp',st:'sok'},{n:'CDX HY',v:'342 bp',st:'sw'}];
+const BOND_ETFS = [{t:'TLT',dur:'18.2y',y:4.88,flow:'-$1.2B'},{t:'AGG',dur:'6.1y',y:4.52,flow:'+$0.8B'},{t:'HYG',dur:'4.2y',y:7.2,flow:'-$0.4B'},{t:'EMB',dur:'7.8y',y:6.8,flow:'+$0.2B'},{t:'LQD',dur:'8.5y',y:5.1,flow:'+$0.3B'}];
+const PRIVATE_CREDIT_STRESS = [{n:'Blackstone BREIT',v:'Redemptions elevated',st:'sw'},{n:'Blue Owl',v:'Elevated requests',st:'sw'},{n:'Industry',v:'Mark-to-model',st:'se'}];
+const REAL_RATES = [{n:'10Y TIPS',v:'+2.10%'},{n:'5Y Breakeven',v:'2.42%'},{n:'10Y Breakeven',v:'2.38%'}];
+const FED_BS = [{n:'Total assets',v:'$7.42T'},{n:'QT pace',v:'$40B/mo'},{n:'12M change',v:'-$480B'}];
+function renderFixedIncomePage(){
+  document.getElementById('fixedYieldCurve').innerHTML = FIXED_YIELD.map(y=>`<div class="yield-point"><div class="tenor">${y.t}</div><div class="rate">${y.r}%</div></div>`).join('');
+  document.getElementById('sovereignBonds').innerHTML = `<table class="full-table"><thead><tr><th>Country</th><th class="num">2Y</th><th class="num">10Y</th><th class="num">30Y</th></tr></thead><tbody>${SOVEREIGN.map(s=>`<tr><td>${s.c}</td><td class="num">${s.y2}%</td><td class="num">${s.y10}%</td><td class="num">${s.y30}%</td></tr>`).join('')}</tbody></table>`;
+  document.getElementById('creditDashboard').innerHTML = CREDIT_MKT.map(c=>`<div class="metric-row"><span>${c.n}</span><span class="dp-sig ${c.st}">${c.v}</span></div>`).join('');
+  document.getElementById('bondETFTracker').innerHTML = `<table class="full-table"><thead><tr><th>ETF</th><th class="num">Duration</th><th class="num">Yield</th><th class="num">Flows</th></tr></thead><tbody>${BOND_ETFS.map(b=>`<tr><td style="color:var(--accent)">${b.t}</td><td class="num">${b.dur}</td><td class="num">${b.y}%</td><td class="num">${b.flow}</td></tr>`).join('')}</tbody></table>`;
+  document.getElementById('privateCreditStress').innerHTML = PRIVATE_CREDIT_STRESS.map(p=>`<div class="metric-row"><span>${p.n}</span><span class="dp-sig ${p.st}">${p.v}</span></div>`).join('');
+  document.getElementById('realRatesDashboard').innerHTML = REAL_RATES.map(r=>`<div class="metric-row"><span>${r.n}</span><span>${r.v}</span></div>`).join('');
+  document.getElementById('fedBalanceSheet').innerHTML = FED_BS.map(f=>`<div class="metric-row"><span>${f.n}</span><span>${f.v}</span></div>`).join('');
+  document.getElementById('durationCalculator').innerHTML = `<div class="metric-row"><span>Portfolio duration</span><span>6.2y</span></div><div class="metric-row"><span>+100bp impact</span><span class="down">≈ -6.2%</span></div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:8px">Convexity-adjusted estimate. Re-run with live holdings for accuracy.</div>`;
+}
+
+// ——— SIGNALS PAGE ——— (latest only: Mar 2026 / Q1 2026)
+const SIGNALS_FULL = [
+  {t:'NVDA',r:'BUY',rc:'rb',entry:820,now:875.40,target:1100,stop:780,rr:2.8,strength:9,bull:'Blackwell cycle through 2026',bear:'China export ban',base:'AI capex intact',catalyst:'Q1 2026 earnings',date:'Mar 8',ret:6.8},
+  {t:'MSFT',r:'BUY',rc:'rb',entry:398,now:415.20,target:520,stop:375,rr:2.9,strength:8,bull:'Copilot monetization 3x',bear:'Azure slowdown',base:'Enterprise AI lead',catalyst:'Build conf May 2026',date:'Mar 8',ret:4.3},
+  {t:'JPM',r:'HOLD',rc:'rh',entry:198,now:197.30,target:195,stop:185,rr:0.2,strength:5,bull:'NII reacceleration',bear:'NIM compression',base:'Fortress balance sheet',catalyst:'Q1 2026 earnings',date:'Mar 8',ret:-0.4},
+  {t:'XOM',r:'WATCH',rc:'rw',entry:112,now:118.30,target:130,stop:105,rr:2.2,strength:6,bull:'Iran premium + capex discipline',bear:'Demand slowdown',base:'Geo + OPEC',catalyst:'Crude $90 / OPEC+',date:'Mar 8',ret:5.6},
+  {t:'GLD',r:'BUY',rc:'rb',entry:185,now:194,target:220,stop:178,rr:2.1,strength:7,bull:'CB buying + geo',bear:'Real rates spike',base:'Hedge demand',catalyst:'FOMC May 2026',date:'Mar 8',ret:4.9},
+  {t:'BX',r:'HOLD',rc:'rh',entry:132,now:128.40,target:140,stop:118,rr:0.6,strength:4,bull:'BREIT stabilizes',bear:'Redemption wave',base:'Wait for clarity',catalyst:'Q1 2026 distrib',date:'Mar 8',ret:-2.7},
+];
+const WATCHLIST = [{t:'COIN',th:'Crypto cycle + ETF flows (latest)'},{t:'ARM',th:'AI semis derivative (latest)'},{t:'PLTR',th:'Gov contracts + AI (latest)'}];
+const PORTFOLIO_RISK = [{m:'Overall Beta',v:'1.18'},{m:'Sector conc (IT)',v:'34%'},{m:'Geo (US)',v:'78%'}];
+function renderSignalsPage(){
+  document.getElementById('signalsConvictionBoard').innerHTML = SIGNALS_FULL.map(s=>{
+    let card = `<div class="signal-card"><div class="sc-ticker">${s.t}</div><div class="sc-meta">`;
+    card += `Entry $${s.entry} · Now $${s.now} · Target $${s.target} · Stop $${s.stop} · R/R ${s.rr} · Size: 2-4%`;
+    card += `</div><div class="sc-thesis">${SIGS.find(x=>x.t===s.t)?.th || s.base}</div>`;
+    card += `<div class="sc-meta">Thesis strength: ${s.strength}/10 </div><div class="meter-bar"><div class="meter-fill" style="width:${s.strength*10}%;background:var(--accent)"></div></div>`;
+    card += `<div class="sc-cases"><div class="sc-case"><div class="case-label">BULL</div>${s.bull}</div><div class="sc-case"><div class="case-label">BEAR</div>${s.bear}</div><div class="sc-case"><div class="case-label">BASE</div>${s.base}</div></div>`;
+    card += `<div class="sc-meta" style="margin-top:10px">Catalyst: ${s.catalyst}</div></div>`;
+    return card;
+  }).join('');
+  document.getElementById('signalsWatchlist').innerHTML = WATCHLIST.map(w=>`<div class="metric-row"><span style="color:var(--accent)">${w.t}</span><span>${w.th}</span></div>`).join('');
+  document.getElementById('portfolioRiskMetrics').innerHTML = PORTFOLIO_RISK.map(p=>`<div class="metric-row"><span>${p.m}</span><span>${p.v}</span></div>`).join('');
+  document.getElementById('signalsPerfTracker').innerHTML = SIGNALS_FULL.map(s=>`<div class="metric-row"><span>${s.t}</span><span>Signal ${s.date}</span><span class="${s.ret>=0?'up':'down'}">${s.ret>=0?'+':''}${s.ret}%</span></div>`).join('');
+}
+
+// SEARCH INDEX
+const SI={
+  eq:[...USD.map(x=>({...x,type:'US EQUITY'})),...EUD.map(x=>({...x,p:x.p,type:'EU EQUITY'}))],
+  etf:[
+    {s:'SPY',n:'SPDR S&P 500 ETF',p:'$518.40',c:'+0.42%',u:1,type:'US ETF PASSIVE'},
+    {s:'QQQ',n:'Invesco Nasdaq 100',p:'$442.80',c:'+0.67%',u:1,type:'US ETF PASSIVE'},
+    {s:'GLD',n:'SPDR Gold Shares',p:'$193.80',c:'+1.2%',u:1,type:'COMMODITY ETF'},
+    {s:'TLT',n:'iShares 20Y Treasury',p:'$91.20',c:'-0.3%',u:0,type:'BOND ETF'},
+    {s:'XLE',n:'Energy Select SPDR',p:'$92.40',c:'+1.8%',u:1,type:'SECTOR ETF'},
+    {s:'ARKK',n:'ARK Innovation ETF',p:'$48.20',c:'+1.4%',u:1,type:'ACTIVE ETF'},
+    {s:'VNQ',n:'Vanguard Real Estate',p:'$82.10',c:'-0.5%',u:0,type:'REIT ETF'},
+    {s:'HYG',n:'iShares HY Bond ETF',p:'$76.40',c:'-0.2%',u:0,type:'BOND ETF'},
+    {s:'IBIT',n:'iShares Bitcoin Trust',p:'$38.20',c:'+1.8%',u:1,type:'CRYPTO ETF'},
+    {s:'AGG',n:'iShares Core US Agg Bond',p:'$96.40',c:'-0.1%',u:0,type:'BOND ETF'},
+  ],
+  mac:[
+    {s:'FED FUNDS',n:'US Federal Reserve Rate',p:'5.33%',c:'Held',u:1,type:'MACRO'},
+    {s:'10Y UST',n:'10-Year US Treasury Yield',p:'4.72%',c:'+3bp',u:1,type:'RATES'},
+    {s:'VIX',n:'CBOE Volatility Index',p:'18.4',c:'+0.9%',u:1,type:'VOLATILITY'},
+    {s:'DXY',n:'US Dollar Index',p:'103.4',c:'-0.2%',u:0,type:'FX'},
+    {s:'PRIVATE CREDIT',n:'Private Credit Market Stress',p:'—',c:'ELEVATED',u:0,type:'CREDIT THEME'},
+    {s:'IRAN OIL',n:'Iran Geopolitical Oil Risk',p:'$84.20',c:'+2.8%',u:1,type:'GEOPOLITICAL'},
+    {s:'YIELD CURVE',n:'2Y/10Y Yield Spread',p:'-18bp',c:'INVERTED',u:0,type:'RATES'},
+    {s:'FOMC',n:'Federal Open Mkt Committee',p:'May 7',c:'NEXT MTG',u:1,type:'MACRO EVENT'},
+    {s:'BLACKSTONE',n:'Blackstone / BREIT Stress',p:'$128.40',c:'-1.2%',u:0,type:'FUND STRESS'},
+    {s:'BLACKROCK',n:'BlackRock Fund Flows',p:'$812.20',c:'+0.3%',u:1,type:'FUND INTEL'},
+  ]
+};
+
+// DETAIL DATA
+const DD={
+  'NVDA':{sym:'NVDA',name:'NVIDIA Corporation',type:'US EQUITY · NASDAQ · SEMICONDUCTORS',price:'$875.40',chg:'▲ +3.2%',u:1,
+    stats:[{l:'Mkt Cap',v:'$2.16T'},{l:'P/E (TTM)',v:'68.4x'},{l:'52W Range',v:'$461–$974'},{l:'Rev TTM',v:'$79.8B'},{l:'EPS Growth',v:'+486% YoY'},{l:'Div Yield',v:'0.03%'}],
+    news:[{s:'BLOOMBERG',t:'4h',h:'NVIDIA data center revenue beats by 12%; hyperscaler AI capex shows no sign of slowing in 2026'},{s:'REUTERS',t:'1d',h:'Blackwell GPU shipments ramping faster than expected; supply constraints easing by Q2 2026'},{s:'MORNINGSTAR',t:'2d',h:'Analyst raises NVDA PT to $1,100 citing durable competitive moat in AI training compute'}],
+    macro:[{l:'AI Capex Cycle',v:'Accelerating',s:'sp'},{l:'Semiconductor Cycle',v:'Upcycle',s:'sp'},{l:'Fed Rate Impact',v:'Moderate Headwind',s:'se'},{l:'China Export Risk',v:'Elevated',s:'sn'},{l:'Hyperscaler Demand',v:'Strong',s:'sp'},{l:'Valuation vs Peers',v:'Premium (justified)',s:'se'}],
+    sources:[{n:'Reuters',u:'https://reuters.com/technology'},{n:'Bloomberg Tech',u:'https://bloomberg.com/technology'},{n:'Morningstar',u:'https://morningstar.com/stocks/xnas/nvda/analysis'},{n:'SEC Filings',u:'https://sec.gov'}]},
+  'MSFT':{sym:'MSFT',name:'Microsoft Corporation',type:'US EQUITY · NASDAQ · CLOUD/AI',price:'$415.20',chg:'▲ +1.1%',u:1,
+    stats:[{l:'Mkt Cap',v:'$3.08T'},{l:'P/E (TTM)',v:'35.2x'},{l:'52W Range',v:'$310–$465'},{l:'Rev TTM',v:'$245B'},{l:'Cloud Growth',v:'+31% YoY'},{l:'Div Yield',v:'0.72%'}],
+    news:[{s:'BLOOMBERG',t:'16h',h:'Microsoft Azure reaccelerates to 31% YoY; Copilot enterprise seats up 3x quarter-over-quarter'},{s:'FT',t:'2d',h:'Microsoft OpenAI investment deepens with $500M committed to next-gen reasoning models'},{s:'MORNINGSTAR',t:'3d',h:'MSFT maintains wide moat rating; enterprise AI monetization ahead of schedule'}],
+    macro:[{l:'Cloud Market Share',v:'2nd (Azure)',s:'sp'},{l:'AI Integration',v:'Leading',s:'sp'},{l:'Enterprise Moat',v:'Wide',s:'sp'},{l:'Valuation',v:'Fair-Slightly Rich',s:'se'},{l:'Rate Sensitivity',v:'Low',s:'sp'},{l:'Regulatory Risk',v:'Moderate',s:'se'}],
+    sources:[{n:'Reuters',u:'https://reuters.com/technology'},{n:'FT Tech',u:'https://ft.com/technology'},{n:'Morningstar MSFT',u:'https://morningstar.com/stocks/xnas/msft/analysis'},{n:'Azure Status',u:'https://azure.microsoft.com'}]},
+  'GOLD':{sym:'GOLD / XAU',name:'Gold Spot Price · Safe Haven Asset',type:'COMMODITY · PRECIOUS METAL · XAU/USD',price:'$2,924/oz',chg:'▲ +1.2%',u:1,
+    stats:[{l:'Spot Price',v:'$2,924/oz'},{l:'52W Range',v:'$1,820–$2,950'},{l:'YTD Change',v:'+18.4%'},{l:'CB Buying',v:'Record'},{l:'Real Rate',v:'+2.1%'},{l:'ATH',v:'$2,950'}],
+    news:[{s:'BLOOMBERG',t:'10h',h:'Gold near ATH as central banks post record 8th consecutive month of net purchases globally'},{s:'REUTERS',t:'1d',h:"China PBoC adds to gold reserves for 8th straight month amid dollar diversification"},{s:'FT',t:'2d',h:'Gold defies high real rates; geopolitical demand offsetting traditional inverse correlation'}],
+    macro:[{l:'Real Rates',v:'+2.1% (Headwind)',s:'sn'},{l:'Central Bank Demand',v:'Record High',s:'sp'},{l:'Geopolitical Risk',v:'Elevated',s:'sp'},{l:'USD Strength',v:'Moderate DXY 103',s:'se'},{l:'Inflation Hedge',v:'Active Thesis',s:'sp'},{l:'Recession Hedge',v:'Relevant',s:'sp'}],
+    sources:[{n:'Reuters Commodities',u:'https://reuters.com/markets/commodities'},{n:'Bloomberg Markets',u:'https://bloomberg.com/markets/commodities'},{n:'WGC (World Gold Council)',u:'https://gold.org'},{n:'FRED Gold Data',u:'https://fred.stlouisfed.org'}]},
+  'PRIVATE CREDIT':{sym:'PRIV CREDIT',name:'Private Credit Market — Stress Monitor',type:'CREDIT THEME · ALTERNATIVE ASSETS',price:'~$12T Market',chg:'▼ Redemptions Elevated',u:0,
+    stats:[{l:'Mkt Size',v:'~$12T global'},{l:'Avg Yield',v:'10–12%'},{l:'BX BREIT',v:'⚠ Redemptions'},{l:'Blue Owl',v:'⚠ Elevated'},{l:'Rate Impact',v:'Highly Negative'},{l:'Vintage Risk',v:'2021–22'}],
+    news:[{s:'REUTERS',t:'2h',h:'Blackstone BREIT redemption requests surge as private credit investors demand liquidity'},{s:'FT',t:'1d',h:'Blue Owl faces redemption pressure in direct lending books; analysts draw Blackstone parallels'},{s:'BLOOMBERG',t:'2d',h:'Private credit faces reckoning as floating-rate loans stress borrowers at 5%+ rates'},{s:'MORNINGSTAR',t:'3d',h:'Mark-to-model valuations in private credit may obscure true portfolio deterioration risk'}],
+    macro:[{l:'Interest Rate Level',v:'5.33% — Highly Negative',s:'sn'},{l:'Borrower Stress',v:'Increasing',s:'sn'},{l:'Valuation Opacity',v:'High Risk — MTM',s:'sn'},{l:'Institutional Demand',v:'Softening',s:'se'},{l:'Regulatory Scrutiny',v:'Increasing',s:'sn'},{l:'Vintage 2021–22',v:'Most at risk',s:'sn'}],
+    sources:[{n:'Reuters Finance',u:'https://reuters.com/business/finance'},{n:'FT Credit',u:'https://ft.com/credit'},{n:'Bloomberg Credit',u:'https://bloomberg.com/credit'},{n:'SEC EDGAR',u:'https://sec.gov'}]},
+  'YIELD CURVE':{sym:'YIELD CURVE',name:'US Treasury 2Y/10Y Spread',type:'RATES · MACRO SIGNAL · INVERSION',price:'-18 bps',chg:'▼ INVERTED',u:0,
+    stats:[{l:'2Y Yield',v:'4.90%'},{l:'10Y Yield',v:'4.72%'},{l:'Spread',v:'-18 bps'},{l:'Status',v:'INVERTED'},{l:'Duration',v:'8+ months'},{l:'Hist Accuracy',v:'~85% recession'}],
+    news:[{s:'FT',t:'3h',h:'Fed officials signal patience on rates as core PCE stays above 2.5% target — cuts pushed to H2'},{s:'BLOOMBERG',t:'1d',h:'Yield curve inversion deepens as strong jobs data reduces probability of June FOMC cut'},{s:'MORNINGSTAR',t:'2d',h:'Recession probability models flag elevated risk based on persistent yield curve inversion'}],
+    macro:[{l:'Signal Reliability',v:'~85% historically',s:'sn'},{l:'Current Duration',v:'8+ months inverted',s:'sn'},{l:'Fed Reaction',v:'Holding rates',s:'se'},{l:'Soft Landing Odds',v:'~45%',s:'se'},{l:'Historical Lead Time',v:'6–18 months',s:'se'},{l:'Credit Spread Signal',v:'HY at +328 — Watch',s:'se'}],
+    sources:[{n:'FRED Yield Data',u:'https://fred.stlouisfed.org/series/T10Y2Y'},{n:'Treasury.gov',u:'https://home.treasury.gov/resource-center/data-chart-center/interest-rates'},{n:'Bloomberg Rates',u:'https://bloomberg.com/markets/rates-bonds'},{n:'Reuters Macro',u:'https://reuters.com/markets'}]},
+};
+
+function getDetail(q){
+  const qu=q.toUpperCase();
+  for(const k of Object.keys(DD)){if(qu.includes(k))return DD[k];}
+  const all=[...SI.eq,...SI.etf,...SI.mac];
+  const m=all.find(x=>qu.includes(x.s.toUpperCase())||x.n.toUpperCase().includes(qu));
+  if(m)return{sym:m.s,name:m.n,type:m.type,price:m.p,chg:(m.u?'▲ ':'▼ ')+m.c,u:m.u,
+    stats:[{l:'Price',v:m.p},{l:'Change',v:m.c},{l:'Type',v:m.type},{l:'Data Source',v:'yfinance (free)'},{l:'News',v:'Reuters/FT/BBG/MS'},{l:'13F',v:'WhalewIsdom / SEC'}],
+    news:[{s:'REUTERS',t:'—',h:`Connect live data feed for real-time Reuters headlines on ${m.n}. See reuters.com`},
+          {s:'FT',t:'—',h:`Financial Times coverage for ${m.s}. Full access at ft.com`},
+          {s:'BLOOMBERG',t:'—',h:`Bloomberg intelligence for ${m.n}. Newsletters at bloomberg.com`},
+          {s:'MORNINGSTAR',t:'—',h:`Morningstar analyst coverage for ${m.s}. Reports at morningstar.com`}],
+    macro:[{l:'Connect FRED API',v:'Free macro data',s:'se'},{l:'Connect yfinance',v:'Live prices',s:'se'},
+           {l:'13F Filings',v:'WhalewIsdom/HedgeFollow',s:'se'},{l:'ETF Flows',v:'ETF.com / JustETF',s:'se'},
+           {l:'News RSS',v:'Reuters/FT/BBG/MS',s:'sp'},{l:'Next Step',v:'Wire live data backend',s:'se'}],
+    sources:[{n:'Reuters',u:'https://reuters.com'},{n:'FT',u:'https://ft.com'},{n:'Bloomberg',u:'https://bloomberg.com'},{n:'Morningstar',u:'https://morningstar.com'}]};
+  return null;
+}
+
+function showDetail(q){
+  const d=getDetail(q);
+  if(!d)return;
+  document.getElementById('dpSym').textContent=d.sym;
+  document.getElementById('dpName').textContent=d.name;
+  document.getElementById('dpType').textContent=d.type;
+  document.getElementById('dpPrice').textContent=d.price;
+  document.getElementById('dpPrice').className='dp-price '+(d.u?'up':'down');
+  document.getElementById('dpChg').textContent=d.chg;
+  document.getElementById('dpChg').className='dp-chg '+(d.u?'up':'down');
+  document.getElementById('dpStats').innerHTML=d.stats.map(s=>`<div class="dp-stat"><div class="dp-stat-label">${s.l}</div><div class="dp-stat-value">${s.v}</div></div>`).join('');
+  document.getElementById('dpNewsTitle').textContent=`LATEST NEWS — ${d.sym}`;
+  document.getElementById('dpNews').innerHTML=d.news.map(n=>`<div class="dp-news-item"><div class="dp-news-src"><span class="nsrc">${n.s}</span><span class="dp-news-time">${n.t}</span></div><div class="dp-news-headline">${n.h}</div></div>`).join('');
+  document.getElementById('dpMacro').innerHTML=d.macro.map(m=>`<div class="dp-macro-item"><span class="dp-macro-label">${m.l}</span><span class="dp-macro-val">${m.v}</span><span class="dp-sig ${m.s}">${m.s==='sp'?'POSITIVE':m.s==='sn'?'NEGATIVE':'NEUTRAL'}</span></div>`).join('');
+  document.getElementById('dpSources').innerHTML=d.sources.map(s=>`<a href="${s.u}" target="_blank" style="font-family:var(--mono);font-size:9px;color:var(--accent2);text-decoration:none;padding:3px 8px;border:1px solid var(--border2);">${s.n} ↗</a>`).join('');
+  const panel=document.getElementById('detailPanel');
+  panel.classList.add('open');
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById('sDropdown').classList.remove('open');
+}
+
+function closeDetail(){document.getElementById('detailPanel').classList.remove('open');document.getElementById('searchInput').value='';}
+
+function qs(q){document.getElementById('searchInput').value=q;showDetail(q);}
+function doSearch(){const q=document.getElementById('searchInput').value.trim();if(q)showDetail(q);}
+
+// LIVE DROPDOWN
+document.getElementById('searchInput').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  if(q.length<2){document.getElementById('sDropdown').classList.remove('open');return;}
+  const all=[...SI.eq,...SI.etf,...SI.mac];
+  const mq=x=>x.s.toLowerCase().includes(q)||x.n.toLowerCase().includes(q);
+  const mi=x=>`<div class="sdr-item" onclick="qs('${x.s} ${x.n}')"><div class="sdr-left"><span class="sdr-sym">${x.s}</span><span class="sdr-name">${x.n}</span></div><div class="sdr-right"><span class="sdr-type">${x.type}</span><span class="sdr-price">${x.p}</span><span class="sdr-chg ${x.u?'up bg-up':'down bg-down'}">${x.c}</span></div></div>`;
+  const re=SI.eq.filter(mq).slice(0,4);
+  const rf=SI.etf.filter(mq).slice(0,3);
+  const rm=SI.mac.filter(mq).slice(0,3);
+  const em='<div class="sdr-empty">No matches</div>';
+  document.getElementById('srEq').innerHTML=re.length?re.map(mi).join(''):em;
+  document.getElementById('srETF').innerHTML=rf.length?rf.map(mi).join(''):em;
+  document.getElementById('srMac').innerHTML=rm.length?rm.map(mi).join(''):em;
+  document.getElementById('sDropdown').classList.toggle('open',!!(re.length||rf.length||rm.length));
+});
+document.getElementById('searchInput').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch();if(e.key==='Escape'){document.getElementById('sDropdown').classList.remove('open');closeDetail();}});
+document.addEventListener('click',function(e){if(!document.getElementById('searchSection').contains(e.target))document.getElementById('sDropdown').classList.remove('open');});
+
+// PRICE FLICKER
+setInterval(()=>{
+  const els=document.querySelectorAll('.sprice,.com-price,.yn-rate');
+  const el=els[Math.floor(Math.random()*els.length)];
+  if(el){el.style.opacity='0.3';setTimeout(()=>el.style.opacity='1',120);}
+},1800);
+</script>
+</body>
+</html>

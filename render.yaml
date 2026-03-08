@@ -1,0 +1,15 @@
+# Render Blueprint — one-click deploy for APEX Research Terminal
+# After connecting your repo: add env vars (ALPHA_VANTAGE_KEY, FINNHUB_TOKEN, FRED_API_KEY) in Dashboard → Environment
+services:
+  - type: web
+    name: apex-dashboard
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python finance-ai/server.py"
+    envVars:
+      - key: ALPHA_VANTAGE_KEY
+        sync: false
+      - key: FINNHUB_TOKEN
+        sync: false
+      - key: FRED_API_KEY
+        sync: false

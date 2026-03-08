@@ -1,0 +1,4 @@
+# API keys — never commit these
+finance-ai.js
+.env
+finance-ai/.env
