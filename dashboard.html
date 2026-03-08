@@ -339,19 +339,13 @@
   .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
   .refresh-btn.loading{opacity:0.7;pointer-events:none;}
 
-  /* ========== MOBILE / PHONE ========== */
-  @media (max-width: 1024px) {
-    .main{grid-template-columns:1fr 1fr;}
-    .news-panel{grid-column:1/-1;}
-    .macro-stats{grid-template-columns:repeat(3,1fr);}
+  /* ========== ADAPTIVE: only for small screens (phones). Desktop unchanged. ========== */
+  @media (max-width: 768px) {
     .tab-page .panel-2col,.tab-page .panel-3col{grid-template-columns:1fr;}
     .fund-expanded .fex-body{grid-template-columns:1fr;}
-    .dp-stats{grid-template-columns:repeat(3,1fr);}
     .dp-body{grid-template-columns:1fr;}
     .heatmap-grid{grid-template-columns:repeat(6,1fr);}
     .signal-card .sc-cases{grid-template-columns:1fr;}
-  }
-  @media (max-width: 768px) {
     header{flex-wrap:wrap;padding:0 12px;height:auto;min-height:56px;}
     .header-center{order:3;width:100%;overflow-x:auto;padding:8px 0;margin:0 -12px;padding-left:12px;-webkit-overflow-scrolling:touch;}
     .header-center .nav-tab{flex-shrink:0;font-size:10px;padding:6px 10px;}
