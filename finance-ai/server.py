@@ -1,7 +1,7 @@
 """
 APEX Research Terminal — local API proxy.
 Reads API keys from .env in this folder. Serves dashboard and proxies live data.
-Run: python server.py   then open http://localhost:5000
+Run: python server.py   then open http://localhost:5050
 """
 import os
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -9,6 +9,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 import json
 import urllib.request
 import time
+import requests
 
 # Load .env from finance-ai/ or parent
 try:
@@ -29,6 +30,7 @@ def _get_key(*names):
 ALPHA_KEY = _get_key('ALPHA_VANTAGE_KEY', 'ALPHA_VANTAGE_API_KEY', 'ALPHAVANTAGE_API_KEY')
 FINNHUB_KEY = _get_key('FINNHUB_TOKEN', 'FINNHUB_API_KEY', 'FINNHUB_KEY')
 FRED_KEY = _get_key('FRED_API_KEY', 'FRED_KEY')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '').strip()
 
 def _fetch_one_quote(symbol):
     data = None
@@ -73,6 +75,47 @@ def _fetch_fred_series(series_id):
     except Exception:
         pass
     return None
+
+
+def _build_macro_snapshot():
+    """
+    Lightweight macro snapshot for AI context.
+    Currently focuses on the US Treasury curve via FRED.
+    """
+    dgs2 = _fetch_fred_series('DGS2')
+    dgs10 = _fetch_fred_series('DGS10')
+    dgs30 = _fetch_fred_series('DGS30')
+    return {
+        'treasury': {
+            'dgs2': dgs2,
+            'dgs10': dgs10,
+            'dgs30': dgs30,
+        }
+    }
+
+
+def _build_stocks_snapshot():
+    """
+    Lightweight equity / index snapshot for AI context.
+    Uses key ETFs / indices that should be supported by Alpha Vantage / Finnhub.
+    """
+    symbols = [
+        'SPY',   # US large-cap (SPX proxy)
+        'QQQ',   # US tech / NDX proxy
+        'DIA',   # Dow Jones
+        'IWM',   # Russell 2000
+        'VIX',   # Volatility index
+        'EFA',   # Developed ex-US proxy
+        'EEM',   # EM equities proxy
+        'DAX',   # German index ETF / ticker (if supported)
+    ]
+    out = {}
+    for sym in symbols:
+        q = _fetch_one_quote(sym)
+        if q:
+            out[sym] = q
+        time.sleep(0.1)
+    return out
 
 class ProxyHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -124,10 +167,129 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json({'dgs2': dgs2, 'dgs10': dgs10, 'dgs30': dgs30})
             return
 
+        # Macro snapshot (currently wraps treasury curve; extendable later)
+        if path == '/api/macro':
+            macro = _build_macro_snapshot()
+            self._send_json(macro)
+            return
+
+        # Stocks / indices snapshot used for AI context
+        if path == '/api/stocks':
+            stocks = _build_stocks_snapshot()
+            self._send_json(stocks)
+            return
+
         # Serve dashboard
         if path == '/' or path == '':
             self.path = '/dashboard.html'
         return SimpleHTTPRequestHandler.do_GET(self)
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path == '/api/ai':
+            length = int(self.headers.get('Content-Length', 0))
+            try:
+                raw = self.rfile.read(length).decode() if length else '{}'
+                body = json.loads(raw or '{}')
+            except Exception:
+                body = {}
+
+            user_message = (body.get('message') or body.get('prompt') or '').strip()
+            if not user_message:
+                self._send_json({'error': 'no prompt'}, 400)
+                return
+
+            if not GROQ_API_KEY:
+                self._send_json({'error': 'GROQ_API_KEY not configured on server'}, 500)
+                return
+
+            # Build current market context from local helpers (same data as /api/macro and /api/stocks)
+            macro = _build_macro_snapshot()
+            stocks = _build_stocks_snapshot()
+
+            lines = []
+            lines.append("CURRENT MARKET DATA SNAPSHOT")
+
+            # Stocks / indices
+            if stocks:
+                lines.append("\nEQUITY & INDEX MOVES:")
+                for sym, q in stocks.items():
+                    price = q.get('price')
+                    pct = q.get('pct')
+                    if price is not None and pct is not None:
+                        lines.append(f"  {sym}: {price} ({pct})")
+
+            # Macro / rates
+            t = (macro or {}).get('treasury') or {}
+            if any(t.values()):
+                lines.append("\nUS TREASURY YIELDS (FRED):")
+                if t.get('dgs2') is not None:
+                    lines.append(f"  2Y: {t['dgs2']}%")
+                if t.get('dgs10') is not None:
+                    lines.append(f"  10Y: {t['dgs10']}%")
+                if t.get('dgs30') is not None:
+                    lines.append(f"  30Y: {t['dgs30']}%")
+                if t.get('dgs2') is not None and t.get('dgs10') is not None:
+                    spread = t['dgs10'] - t['dgs2']
+                    shape = 'INVERTED' if spread < 0 else 'NORMAL'
+                    lines.append(f"  2s10s spread: {spread:.2f}% ({shape})")
+
+            market_context = "\n".join(lines)
+
+            system_prompt = (
+                "You are APEX, an institutional-grade financial analyst. "
+                "You have live market data context. Be concise, precise, think like a CFA charterholder. "
+                "Reference actual data provided, no generic advice."
+            )
+
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": f"{market_context}\n\nUser question: {user_message}",
+                    },
+                ],
+                "temperature": 0.3,
+            }
+
+            try:
+                resp = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=60,
+                )
+                if resp.status_code != 200:
+                    self._send_json(
+                        {
+                            'error': f'Groq API error {resp.status_code}: {resp.text[:200]}'
+                        },
+                        502,
+                    )
+                    return
+                data = resp.json()
+                choices = data.get("choices") or []
+                if not choices:
+                    self._send_json({'error': 'No choices returned from Groq API'}, 502)
+                    return
+                content = (choices[0].get("message") or {}).get("content") or ""
+                self._send_json({'response': content})
+            except Exception as e:
+                self._send_json({'error': str(e)}, 500)
+            return
+        self.send_error(404)
 
     def log_message(self, format, *args):
         print("[%s] %s" % (self.log_date_time_string(), format % args))
