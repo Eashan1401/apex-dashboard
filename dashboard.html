@@ -23,6 +23,7 @@
   @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
   @keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes apexDraw{to{stroke-dashoffset:0}}
 
   /* HEADER */
   header{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
@@ -318,6 +319,78 @@
   .links-stack a{font-family:var(--mono);font-size:11px;color:var(--accent2);text-decoration:none;padding:6px 12px;border:1px solid var(--border2);}
   .links-stack a:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.05);}
 
+  /* EXTENDED PANELS */
+  .panel-4col{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  .apex-banner{margin:16px 24px 0;border-left:4px solid #d6a63a;}
+  .apex-banner-body{padding:16px 18px;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:16px;align-items:start;}
+  .apex-regime-kicker,.apex-mini-label,.apex-footer-note,.apex-meta-line,.apex-table-note,.apex-todo{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;}
+  .apex-regime-name{font-family:var(--display);font-size:42px;letter-spacing:3px;line-height:0.95;color:#d6a63a;}
+  .apex-confidence{font-family:var(--display);font-size:28px;letter-spacing:2px;color:var(--text);}
+  .apex-inline-list,.apex-list{display:flex;flex-direction:column;gap:6px;font-family:var(--mono);font-size:11px;color:var(--text2);}
+  .apex-inline-list span,.apex-list span{color:var(--text);}
+  .apex-subcopy{font-size:12px;line-height:1.6;color:var(--text2);}
+  .apex-mini-card{padding:14px 16px;}
+  .apex-big-number{font-family:var(--display);font-size:40px;letter-spacing:2px;line-height:1;color:var(--accent);}
+  .apex-gauge-track,.apex-mini-bar,.apex-score-bar{height:8px;background:var(--border);overflow:hidden;position:relative;}
+  .apex-gauge-fill,.apex-mini-bar > span,.apex-score-fill{height:100%;display:block;}
+  .apex-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 12px;margin-top:10px;}
+  .apex-stat{padding-top:6px;border-top:1px solid var(--border);}
+  .apex-stat .k{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--text3);}
+  .apex-stat .v{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:3px;}
+  .apex-breadth-row,.apex-flex-row{display:flex;justify-content:space-between;gap:10px;align-items:center;}
+  .apex-breadth-row{padding:7px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;}
+  .apex-breadth-row:last-child{border-bottom:none;}
+  .apex-spark{width:84px;flex-shrink:0;}
+  .apex-econ-table-wrap,.apex-table-wrap{overflow-x:auto;}
+  .apex-econ-table,.apex-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px;}
+  .apex-econ-table th,.apex-econ-table td,.apex-table th,.apex-table td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;}
+  .apex-econ-table th,.apex-table th{background:var(--bg3);color:var(--text3);letter-spacing:1px;font-weight:500;}
+  .apex-badge{display:inline-flex;align-items:center;padding:2px 7px;border:1px solid var(--border2);font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--text2);}
+  .apex-badge.green{color:var(--green);border-color:rgba(0,230,118,0.35);}
+  .apex-badge.red{color:var(--red);border-color:rgba(255,68,68,0.35);}
+  .apex-badge.yellow{color:var(--gold);border-color:rgba(255,215,0,0.35);}
+  .apex-badge.cyan{color:var(--accent);border-color:rgba(0,212,255,0.35);}
+  .apex-score-badge{display:inline-flex;min-width:46px;justify-content:center;padding:3px 8px;font-family:var(--mono);font-size:10px;letter-spacing:1px;border:1px solid var(--border2);}
+  .apex-score-badge.green{background:rgba(0,230,118,0.08);color:var(--green);border-color:rgba(0,230,118,0.3);}
+  .apex-score-badge.yellow{background:rgba(255,215,0,0.08);color:var(--gold);border-color:rgba(255,215,0,0.3);}
+  .apex-score-badge.red{background:rgba(255,68,68,0.08);color:var(--red);border-color:rgba(255,68,68,0.3);}
+  .apex-score-badge.gray{background:rgba(138,170,191,0.08);color:var(--text2);}
+  .apex-detail-row td{padding:0 !important;background:var(--bg3);}
+  .apex-detail-panel{display:none;padding:12px 14px;border-top:1px solid var(--border);}
+  .apex-detail-panel.open{display:block;}
+  .apex-score-segments{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+  .apex-score-segment{background:var(--bg2);border:1px solid var(--border);padding:8px;}
+  .apex-score-segment .label{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:5px;letter-spacing:1px;}
+  .apex-score-segment .num{font-family:var(--display);font-size:18px;letter-spacing:1px;}
+  .apex-yield-svg{width:100%;height:260px;display:block;background:linear-gradient(180deg,rgba(0,212,255,0.03),transparent);}
+  .apex-spread-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+  .apex-spread-box{padding:10px;background:var(--bg3);border:1px solid var(--border);}
+  .apex-spread-box .label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;}
+  .apex-spread-box .value{font-family:var(--display);font-size:20px;letter-spacing:1px;margin:4px 0;}
+  .apex-dotplot{width:100%;height:110px;display:block;}
+  .apex-stack{display:flex;flex-direction:column;gap:10px;}
+  .apex-contrib-row{display:grid;grid-template-columns:130px 60px 40px 1fr;gap:10px;align-items:center;font-family:var(--mono);font-size:10px;padding:6px 0;border-bottom:1px solid var(--border);}
+  .apex-contrib-row:last-child{border-bottom:none;}
+  .apex-carry-list,.apex-bullet-list{display:flex;flex-direction:column;gap:8px;font-size:11px;color:var(--text2);}
+  .apex-bullet-list div::before{content:'• ';color:var(--accent);}
+  .apex-slider-wrap{padding:12px 0;}
+  .apex-slider{width:100%;accent-color:var(--accent);background:transparent;}
+  .apex-journal-form{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) auto;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);}
+  .apex-journal-form input,.apex-journal-form select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:8px;outline:none;}
+  .apex-journal-actions{display:flex;gap:6px;}
+  .apex-btn{background:none;border:1px solid var(--border2);color:var(--text2);padding:6px 10px;font-family:var(--mono);font-size:10px;letter-spacing:1px;cursor:pointer;}
+  .apex-btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+  .apex-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .apex-btn.primary:hover{color:var(--bg);opacity:0.88;}
+  .apex-collapse{margin-top:12px;border-top:1px solid var(--border);padding-top:12px;}
+  .apex-cols-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .apex-cols-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .apex-mini-heading{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;}
+  .apex-note{font-size:11px;color:var(--text2);line-height:1.6;}
+  .apex-heatline{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:10px;}
+  .apex-heat-cell{padding:10px 4px;text-align:center;border:1px solid var(--border);font-family:var(--mono);font-size:9px;}
+  .apex-ai-meta{font-size:9px;color:var(--text3);margin-top:4px;letter-spacing:1px;font-family:var(--mono);}
+
   /* EDUCATION / TOOLTIPS */
   .edu-trigger{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:4px;border-radius:50%;border:1px solid var(--accent2);color:var(--accent);font-size:10px;font-weight:600;cursor:help;vertical-align:middle;}
   .edu-trigger:hover{background:rgba(0,212,255,0.15);}
@@ -342,6 +415,7 @@
   /* ========== ADAPTIVE: only for small screens (phones). Desktop unchanged. ========== */
   @media (max-width: 768px) {
     .tab-page .panel-2col,.tab-page .panel-3col{grid-template-columns:1fr;}
+    .panel-4col,.apex-banner-body,.apex-cols-2,.apex-cols-3,.apex-score-segments,.apex-spread-grid{grid-template-columns:1fr;}
     .fund-expanded .fex-body{grid-template-columns:1fr;}
     .dp-body{grid-template-columns:1fr;}
     .heatmap-grid{grid-template-columns:repeat(6,1fr);}
@@ -384,6 +458,10 @@
     .signal-grid{grid-template-columns:repeat(2,1fr);}
     .sig-item{padding:8px;}
     .edu-modal-inner{max-width:95vw;margin:12px;}
+    .apex-banner{margin:12px 12px 0;}
+    .apex-regime-name{font-size:34px;}
+    .apex-journal-form{grid-template-columns:1fr 1fr;}
+    .apex-contrib-row{grid-template-columns:100px 56px 36px 1fr;}
   }
   @media (max-width: 480px) {
     .logo-text{font-size:18px;}
@@ -495,6 +573,28 @@
 
 <!-- OVERVIEW PAGE -->
 <div id="overviewPage" class="tab-page active">
+<div class="card apex-banner">
+  <div class="card-header"><span class="card-title">Market Regime Banner</span><span class="card-badge">Allocation Lens</span></div>
+  <div class="apex-banner-body">
+    <div>
+      <div class="apex-regime-kicker">Current Regime</div>
+      <div class="apex-regime-name">LATE CYCLE</div>
+      <div class="apex-confidence">72% <span style="font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--accent);">CONFIDENCE</span></div>
+    </div>
+    <div>
+      <div class="apex-mini-label">Confirming Signals</div>
+      <div class="apex-inline-list">
+        <div><span>Yield curve inverted</span> (2s10s &lt; 0)</div>
+        <div><span>VIX elevated</span> (≈ 18–20)</div>
+        <div><span>CPI sticky</span> above 2% target</div>
+      </div>
+    </div>
+    <div>
+      <div class="apex-mini-label">What It Means For Allocation</div>
+      <div class="apex-subcopy">Favour quality, short-duration credit, and keep dry powder for dislocations rather than chasing high-beta cyclicals.</div>
+    </div>
+  </div>
+</div>
 <!-- TICKER BAR -->
 <div class="macro-bar">
   <div class="macro-label">MARKETS</div>
@@ -514,6 +614,33 @@
       <div class="ms"><div class="ms-label">WTI Crude</div><div class="ms-value" style="color:var(--oil)">$84.20</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--oil)"> +2.8% Iran</span></div><div class="ms-sub">Geo premium</div></div>
       <div class="ms"><div class="ms-label">Gold Spot</div><div class="ms-value" style="color:var(--gold)">$2,924</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--gold)"> +1.2%</span></div><div class="ms-sub">Near ATH</div></div>
       <div class="ms"><div class="ms-label">VIX</div><div class="ms-value" style="color:var(--gold)">18.4</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--gold)"> Elevated</span></div><div class="ms-sub">Watch >20</div></div>
+    </div>
+  </div>
+
+  <div class="panel-4col" style="grid-column:1/4;">
+    <div class="card apex-mini-card">
+      <div class="card-header"><span class="card-title">CNN Fear &amp; Greed Index</span><span class="card-badge" id="fearGreedBadge">Loading</span></div>
+      <div id="fearGreedCard"></div>
+    </div>
+    <div class="card apex-mini-card">
+      <div class="card-header"><span class="card-title">VIX Term Structure</span><span class="card-badge" id="vixTermBadge">Loading</span></div>
+      <div id="vixTermCard"></div>
+    </div>
+    <div class="card apex-mini-card">
+      <div class="card-header"><span class="card-title">Market Breadth</span><span class="card-badge">SPX INTERNALS</span></div>
+      <div id="breadthCard"></div>
+    </div>
+    <div class="card apex-mini-card">
+      <div class="card-header"><span class="card-title">Insider Activity Snapshot</span><span class="card-badge">WATCHLIST</span></div>
+      <div id="overviewInsiderCard"></div>
+    </div>
+  </div>
+
+  <div class="card" style="grid-column:1/4;">
+    <div class="card-header"><span class="card-title">Economic Surprise Tracker</span><span class="card-badge">Hardcoded Placeholder</span></div>
+    <div style="padding:0 16px 12px;">
+      <div id="economicSurpriseTracker"></div>
+      <div class="apex-todo" style="margin-top:10px;">TODO: plug `/api/economic-calendar` into the surprise table once the mapping logic is finalized.</div>
     </div>
   </div>
 
@@ -685,7 +812,7 @@
     <div class="card" style="padding:0;overflow-x:auto;">
       <div class="card-header"><span class="card-title">US Stocks <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('pe')" title="P/E and metrics">i</span></span><span class="card-badge">FULL WATCHLIST</span></div>
       <table class="full-table" id="usStocksTable">
-        <thead><tr><th>Ticker</th><th>Name</th><th class="num">Price</th><th class="num">Change</th><th class="num">Mkt Cap</th><th class="num">P/E</th><th class="num">EPS Gr</th><th class="num">Revenue</th><th class="num">Div Yld</th><th class="num">52W Range</th><th class="num">Beta</th><th>Rating</th></tr></thead>
+        <thead><tr><th>Ticker</th><th>Name</th><th class="num">Price</th><th class="num">Change</th><th class="num">Mkt Cap</th><th class="num">P/E</th><th class="num">EPS Gr</th><th class="num">Revenue</th><th class="num">Div Yld</th><th class="num">52W Range</th><th class="num">Beta</th><th>Rating</th><th class="num">Score (0–100)</th></tr></thead>
         <tbody id="usStocksBody"></tbody>
       </table>
     </div>
@@ -723,6 +850,34 @@
     <div class="card">
       <div class="card-header"><span class="card-title">Analyst Consensus <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('analyst')" title="How is this calculated?">i</span></span><span class="card-badge">BUY / HOLD / SELL · PT · UPSIDE %</span></div>
       <div id="analystPanel"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Factor Performance</span><span class="card-badge">LATE CYCLE</span></div>
+    <div id="factorPerformancePanel"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Earnings Intelligence</span><span class="card-badge">NEXT DATE · SURPRISES · STREAK</span></div>
+    <div id="earningsIntel"></div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Insider Transactions</span><span class="card-badge">UNIFIED FEED</span></div>
+      <div id="insiderTransactions"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Institutional Flows — Watchlist</span><span class="card-badge">OWNERSHIP CHANGE</span></div>
+      <div id="institutionalFlows"></div>
+    </div>
+  </div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Relative Strength vs SPX &amp; Sector</span><span class="card-badge">RS MATRIX</span></div>
+      <div id="relativeStrengthTable"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Options Intelligence (Top 6)</span><span class="card-badge">IV · PCR · MAX PAIN</span></div>
+      <div id="optionsIntel"></div>
     </div>
   </div>
 </div>
@@ -858,6 +1013,10 @@
       <div id="signalsPerfTracker"></div>
     </div>
   </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Alpha Tracker (Paper Trading Journal)</span><span class="card-badge">IN MEMORY</span></div>
+    <div id="alphaTracker"></div>
+  </div>
 </div>
 
 <!-- AI CHAT PAGE -->
@@ -878,12 +1037,13 @@
   <div style="margin-top:12px;max-width:900px;margin-left:auto;margin-right:auto;">
     <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">QUICK PROMPTS:</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="qtag" onclick="aiQuick('Summarize the current macro regime based on the data')">Macro summary</button>
-      <button class="qtag" onclick="aiQuick('Which US stocks in my watchlist are underperforming today?')">Underperformers</button>
-      <button class="qtag" onclick="aiQuick('What does the yield curve tell us about recession risk?')">Yield curve signal</button>
-      <button class="qtag" onclick="aiQuick('Which commodities show the strongest trend today?')">Commodity trends</button>
-      <button class="qtag" onclick="aiQuick('Give me a brief market outlook based on current data')">Market outlook</button>
-      <button class="qtag" onclick="aiQuick('What are the biggest risks in the current market environment?')">Key risks</button>
+      <button class="qtag" onclick="aiQuick('Macro regime summary')">Macro regime summary</button>
+      <button class="qtag" onclick="aiQuick('Best risk-reward setups')">Best risk-reward setups</button>
+      <button class="qtag" onclick="aiQuick('Yield curve implications')">Yield curve implications</button>
+      <button class="qtag" onclick="aiQuick('Oil impact chain')">Oil impact chain</button>
+      <button class="qtag" onclick="aiQuick('Where are we in the cycle')">Where are we in the cycle</button>
+      <button class="qtag" onclick="aiQuick('Portfolio stress test')">Portfolio stress test</button>
+      <button class="qtag" onclick="aiQuick('What would change your view')">What would change your view</button>
     </div>
   </div>
 </div>
@@ -1656,6 +1816,635 @@ function aiQuick(prompt) {
   document.getElementById('aiPage').classList.add('active');
   sendAI();
 }
+// ─────────────────────────────────────────────────────────────────────────
+
+// ── APEX EXTENSIONS ──────────────────────────────────────────────────────
+const APEX_CACHE = { macro: null, fearGreed: null, vixTerm: null, fundamentals: {}, earnings: {}, insiders: {}, institutional: {}, options: {}, economicCalendar: null };
+const APEX_BREADTH = [
+  { label: '% Above 50D MA', value: 58, tone: 'var(--green)' },
+  { label: '% Above 200D MA', value: 46, tone: 'var(--gold)' },
+  { label: '52W High/Low Ratio', value: 1.4, tone: '#7ed6ff', suffix: 'x', max: 2 }
+];
+const APEX_ECON_SURPRISES = [
+  { event: 'NFP', actual: '182k', estimate: '165k', surprise: 'Beat +10.3%', reaction: 'positive', beat: true },
+  { event: 'CPI', actual: '3.1%', estimate: '3.0%', surprise: 'Miss +0.1pp', reaction: 'negative', beat: false },
+  { event: 'GDP', actual: '2.2%', estimate: '2.0%', surprise: 'Beat +0.2pp', reaction: 'positive', beat: true },
+  { event: 'ISM Manufacturing', actual: '50.4', estimate: '49.7', surprise: 'Beat +0.7', reaction: 'positive', beat: true },
+  { event: 'Retail Sales', actual: '0.2%', estimate: '0.4%', surprise: 'Miss -0.2pp', reaction: 'neutral', beat: false },
+  { event: 'PCE', actual: '2.8%', estimate: '2.8%', surprise: 'In line', reaction: 'neutral', beat: null }
+];
+const APEX_MOMENTUM = {
+  NVDA: { d1: 3.2, w1: 5.8, m1: 11.2 }, MSFT: { d1: 1.1, w1: 2.4, m1: 4.1 }, AAPL: { d1: -0.3, w1: -1.2, m1: 1.8 },
+  GOOGL: { d1: 0.8, w1: 1.9, m1: 6.4 }, META: { d1: 2.1, w1: 4.7, m1: 9.3 }, JPM: { d1: -0.6, w1: -1.0, m1: 2.2 },
+  GS: { d1: 0.4, w1: 0.8, m1: 3.6 }, BAC: { d1: -0.8, w1: -2.1, m1: 1.5 }, BX: { d1: -1.2, w1: -3.2, m1: -0.8 },
+  BLK: { d1: 0.3, w1: 1.3, m1: 3.1 }, XOM: { d1: 1.9, w1: 4.4, m1: 7.8 }, AMD: { d1: 2.4, w1: 3.9, m1: 10.4 }
+};
+const APEX_FACTOR_PERF = [
+  { factor: 'Value', today: 0.62, w1: 1.7, m1: 4.8, ytd: 8.6 },
+  { factor: 'Growth', today: 0.18, w1: 0.7, m1: 2.1, ytd: 5.2 },
+  { factor: 'Quality', today: 0.55, w1: 1.6, m1: 4.2, ytd: 7.9 },
+  { factor: 'Momentum', today: 0.34, w1: 1.1, m1: 3.7, ytd: 6.8 },
+  { factor: 'Low Volatility', today: 0.41, w1: 1.4, m1: 3.1, ytd: 6.1 },
+  { factor: 'Small Cap', today: -0.22, w1: -0.6, m1: 0.5, ytd: 1.9 }
+];
+const APEX_EARNINGS_GUIDE = {
+  NVDA: { guidance: 'Raised', revisions: 'Up' }, MSFT: { guidance: 'Raised', revisions: 'Up' }, AAPL: { guidance: 'Maintained', revisions: 'Flat' },
+  GOOGL: { guidance: 'Raised', revisions: 'Up' }, META: { guidance: 'Raised', revisions: 'Up' }, JPM: { guidance: 'Maintained', revisions: 'Flat' },
+  GS: { guidance: 'Maintained', revisions: 'Flat' }, BAC: { guidance: 'Maintained', revisions: 'Down' }, BX: { guidance: 'Lowered', revisions: 'Down' },
+  BLK: { guidance: 'Maintained', revisions: 'Flat' }, XOM: { guidance: 'Maintained', revisions: 'Flat' }, AMD: { guidance: 'Raised', revisions: 'Up' }
+};
+const APEX_RS = {
+  NVDA: { spx:[3.2,7.8,14.1,25.4], sector:[1.8,4.6,7.9,16.2], rating: 97 }, MSFT: { spx:[0.9,2.1,5.0,11.5], sector:[0.5,1.4,3.1,7.6], rating: 86 },
+  AAPL: { spx:[-0.7,-1.3,0.8,3.5], sector:[-0.9,-1.9,-1.1,0.6], rating: 48 }, GOOGL: { spx:[0.6,1.8,4.4,10.8], sector:[0.2,0.8,2.2,5.5], rating: 79 },
+  META: { spx:[1.9,4.2,8.6,17.1], sector:[1.1,2.4,4.9,9.8], rating: 91 }, JPM: { spx:[-0.4,0.7,2.5,6.2], sector:[0.2,1.1,2.9,5.1], rating: 63 },
+  GS: { spx:[0.1,1.2,3.0,7.0], sector:[0.4,1.6,3.4,5.6], rating: 69 }, BAC: { spx:[-0.8,-1.6,0.4,2.1], sector:[-0.2,-0.6,0.8,1.9], rating: 41 },
+  BX: { spx:[-1.4,-3.2,-1.1,2.8], sector:[-0.9,-2.4,-0.8,1.4], rating: 34 }, BLK: { spx:[0.2,1.4,3.2,7.6], sector:[0.4,1.6,3.1,6.0], rating: 72 },
+  XOM: { spx:[1.3,4.1,7.1,12.4], sector:[0.8,1.9,3.8,5.5], rating: 83 }, AMD: { spx:[2.0,5.0,10.1,18.8], sector:[1.1,3.0,6.3,11.4], rating: 90 }
+};
+const APEX_OPTION_IVP = { NVDA: 82, MSFT: 58, AAPL: 46, JPM: 39, XOM: 55, META: 73 };
+const APEX_OPTION_HV30 = { NVDA: 44, MSFT: 21, AAPL: 19, JPM: 24, XOM: 28, META: 31 };
+const APEX_SIGNAL_NOTES = {
+  NVDA: { summary:'Leadership semiconductor with asymmetric upside if hyperscaler spend stays durable.', metrics:['Blackwell backlog cadence','Gross margin > 73%','Cloud capex commentary'], dates:['May 22 earnings','Jun 11 CPI','Jul 30 Fed'], size:'Kelly-style sizing capped at 4% because edge is high but volatility is also high.', corr:'Highly correlated with semis, Nasdaq beta, and AI capex complex.' },
+  MSFT: { summary:'Defensive AI compounder with cleaner downside than pure-play semis.', metrics:['Azure AI growth','Copilot ARPU','Commercial bookings'], dates:['Apr 25 earnings','May 19 Build','Jun 11 CPI'], size:'3-4% sizing supported by lower beta and stronger free-cash-flow resilience.', corr:'Correlates with mega-cap tech and enterprise software risk.' },
+  JPM: { summary:'High-quality bank but less upside while NIM compression remains unresolved.', metrics:['NII guide','Deposit beta','Credit costs'], dates:['Apr 12 earnings','May 7 Fed','Jun 7 payrolls'], size:'2% sizing only; expected value is moderate and macro sensitivity is higher.', corr:'Moves with US financials, rates, and soft-landing expectations.' },
+  XOM: { summary:'Late-cycle energy exposure with geopolitical convexity and solid cash returns.', metrics:['WTI > $85','Refining margins','OPEC discipline'], dates:['Apr 30 earnings','Jun 1 OPEC+','Jun 11 CPI'], size:'2-3% tactical sizing because thesis depends on commodity path, not pure alpha.', corr:'Correlates with crude, energy equities, and inflation surprises.' },
+  GLD: { summary:'Portfolio hedge for geopolitical and policy-error risk with central-bank demand support.', metrics:['Real 10Y yield','Official sector demand','USD trend'], dates:['May 7 Fed','Jun 11 CPI','Jul 31 FOMC'], size:'3% hedge allocation justified by convex payoff in stagflation and risk-off tails.', corr:'Negative to real rates, positive to geopolitical stress, diversifier vs equities.' },
+  BX: { summary:'Quality franchise, but private-credit and BREIT redemption overhang still caps upside.', metrics:['BREIT redemptions','Fee-related earnings','Private credit marks'], dates:['Apr 18 earnings','May 15 distribution update','Jun 30 quarter-end flows'], size:'1-2% watch-sized exposure only until liquidity signals improve.', corr:'Correlates with credit spreads, alternative managers, and liquidity sentiment.' }
+};
+let APEX_STOCK_SCORES = {};
+let APEX_ALPHA_EDIT = null;
+let APEX_ALPHA_ROWS = [
+  { date:'2026-03-04', symbol:'NVDA', direction:'Long', entry:842, current:875.4, thesis:'AI capex durability', status:'Open' },
+  { date:'2026-03-05', symbol:'XOM', direction:'Long', entry:114.2, current:118.3, thesis:'Iran oil premium', status:'Open' },
+  { date:'2026-03-06', symbol:'JPM', direction:'Short', entry:201.4, current:197.3, thesis:'NIM compression', status:'Open' }
+];
+
+function apexClamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function apexNum(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+function apexFmt(v, digits = 1) { return v == null || Number.isNaN(v) ? '—' : Number(v).toFixed(digits); }
+function apexPct(v, digits = 1) { return v == null || Number.isNaN(v) ? '—' : `${Number(v).toFixed(digits)}%`; }
+function apexShortMoney(v) {
+  const n = apexNum(v);
+  if (n == null) return '—';
+  if (Math.abs(n) >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  return `$${n.toFixed(0)}`;
+}
+function apexParsePct(text) {
+  if (!text) return 0;
+  const n = parseFloat(String(text).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+function apexColorScale(value, bands) {
+  for (const band of bands) if (value <= band.max) return band.color;
+  return bands[bands.length - 1].color;
+}
+async function apexFetchJSON(path) {
+  try {
+    const res = await fetch(`${APEX_PROXY}${path}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) { return null; }
+}
+async function apexFetchCached(bucket, key, path) {
+  if (key == null) {
+    if (APEX_CACHE[bucket] !== null) return APEX_CACHE[bucket];
+    APEX_CACHE[bucket] = await apexFetchJSON(path);
+    return APEX_CACHE[bucket];
+  }
+  if (APEX_CACHE[bucket][key]) return APEX_CACHE[bucket][key];
+  APEX_CACHE[bucket][key] = await apexFetchJSON(path);
+  return APEX_CACHE[bucket][key];
+}
+function apexScoreInverse(value, good, bad) {
+  if (value == null) return 50;
+  if (value <= good) return 100;
+  if (value >= bad) return 0;
+  return apexClamp(((bad - value) / (bad - good)) * 100, 0, 100);
+}
+function apexScoreDirect(value, bad, good) {
+  if (value == null) return 50;
+  if (value <= bad) return 0;
+  if (value >= good) return 100;
+  return apexClamp(((value - bad) / (good - bad)) * 100, 0, 100);
+}
+function apexScoreBadge(score) {
+  if (score == null) return '<span class="apex-score-badge gray">—</span>';
+  const cls = score > 70 ? 'green' : score >= 50 ? 'yellow' : 'red';
+  return `<span class="apex-score-badge ${cls}">${Math.round(score)}</span>`;
+}
+function apexToggleScoreDetail(symbol) {
+  const panel = document.getElementById(`score-detail-${symbol}`);
+  if (!panel) return;
+  panel.classList.toggle('open');
+}
+function apexRenderFearGreed(data) {
+  const el = document.getElementById('fearGreedCard');
+  const badge = document.getElementById('fearGreedBadge');
+  if (!el || !badge) return;
+  if (!data || data.score == null) {
+    badge.textContent = 'N/A';
+    el.innerHTML = `<div class="apex-big-number" style="color:var(--text3)">N/A</div><div class="apex-note">Fear &amp; Greed: N/A</div>`;
+    return;
+  }
+  const score = Number(data.score);
+  const tone = apexColorScale(score, [
+    { max: 25, color: 'var(--red)' }, { max: 45, color: 'var(--oil)' }, { max: 55, color: 'var(--gold)' }, { max: 75, color: 'var(--green)' }, { max: 100, color: '#008f5a' }
+  ]);
+  badge.textContent = data.rating || 'Live';
+  el.innerHTML = `
+    <div class="apex-big-number" style="color:${tone}">${Math.round(score)}</div>
+    <div class="apex-gauge-track"><span class="apex-gauge-fill" style="width:${score}%;background:${tone}"></span></div>
+    <div class="apex-note" style="margin-top:8px;color:${tone}">${data.rating || 'Composite sentiment'}</div>
+    <div class="apex-stat-grid">
+      <div class="apex-stat"><div class="k">Prev Close</div><div class="v">${data.previous_close ?? '—'}</div></div>
+      <div class="apex-stat"><div class="k">1W Ago</div><div class="v">${data.one_week_ago ?? '—'}</div></div>
+      <div class="apex-stat"><div class="k">1M Ago</div><div class="v">${data.one_month_ago ?? '—'}</div></div>
+      <div class="apex-stat"><div class="k">1Y Ago</div><div class="v">${data.one_year_ago ?? '—'}</div></div>
+    </div>`;
+}
+function apexRenderVixTerm(data) {
+  const el = document.getElementById('vixTermCard');
+  const badge = document.getElementById('vixTermBadge');
+  if (!el || !badge) return;
+  if (!data || data.current == null) {
+    badge.textContent = 'N/A';
+    el.innerHTML = `<div class="apex-note">VIX term structure unavailable.</div>`;
+    return;
+  }
+  const curve = data.one_month_ago != null && data.current > data.one_month_ago ? 'Backwardation' : 'Contango';
+  badge.textContent = curve.toUpperCase();
+  el.innerHTML = `
+    <div class="apex-big-number" style="font-size:34px;color:${curve === 'Backwardation' ? 'var(--gold)' : 'var(--green)'}">${apexFmt(data.current,1)}</div>
+    <div class="apex-stat-grid">
+      <div class="apex-stat"><div class="k">1W Ago</div><div class="v">${apexFmt(data.one_week_ago,1)}</div></div>
+      <div class="apex-stat"><div class="k">1M Ago</div><div class="v">${apexFmt(data.one_month_ago,1)}</div></div>
+      <div class="apex-stat"><div class="k">1Y Ago</div><div class="v">${apexFmt(data.one_year_ago,1)}</div></div>
+      <div class="apex-stat"><div class="k">1Y Percentile</div><div class="v">${apexPct(data.percentile_1y,0)}</div></div>
+    </div>
+    <div class="apex-note" style="margin-top:10px">Curve: <span style="color:${curve === 'Backwardation' ? 'var(--red)' : 'var(--green)'}">${curve}</span></div>`;
+}
+function apexRenderBreadth() {
+  const el = document.getElementById('breadthCard');
+  if (!el) return;
+  el.innerHTML = APEX_BREADTH.map(item => {
+    const max = item.max || 100;
+    const width = apexClamp((item.value / max) * 100, 0, 100);
+    return `<div class="apex-breadth-row"><span>${item.label}</span><div class="apex-spark"><div class="apex-mini-bar"><span style="width:${width}%;background:${item.tone}"></span></div></div><span style="color:${item.tone}">${item.value}${item.suffix || '%'}</span></div>`;
+  }).join('');
+}
+function apexRenderOverviewInsider() {
+  const el = document.getElementById('overviewInsiderCard');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="apex-note"><span style="color:var(--red)">Net insider selling</span> still outweighs buying this quarter across mega-cap tech.</div>
+    <div class="apex-list" style="margin-top:10px">
+      <div><span>Quarter tone:</span> selective trimming into strength</div>
+      <div><span>Most notable:</span> MSFT director disposition flagged as routine diversification</div>
+      <div><span>Watch:</span> CEO/CFO buys in banks and energy for stronger signal quality</div>
+    </div>`;
+}
+function apexRenderEconomicSurprise() {
+  const el = document.getElementById('economicSurpriseTracker');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="apex-econ-table-wrap">
+      <table class="apex-econ-table">
+        <thead><tr><th>Event</th><th>Actual</th><th>Estimate</th><th>Surprise</th><th>Market Reaction</th></tr></thead>
+        <tbody>
+          ${APEX_ECON_SURPRISES.map(row => `<tr><td>${row.event}</td><td>${row.actual}</td><td>${row.estimate}</td><td class="${row.beat === null ? '' : row.beat ? 'up' : 'down'}">${row.surprise}</td><td style="color:${row.reaction === 'positive' ? 'var(--green)' : row.reaction === 'negative' ? 'var(--red)' : 'var(--text2)'}">${row.reaction}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="apex-table-note" style="margin-top:10px;color:var(--green)">Current regime: Mild Beat Cycle (more positive than negative surprises)</div>`;
+}
+async function renderOverviewExtensions() {
+  apexRenderBreadth();
+  apexRenderOverviewInsider();
+  apexRenderEconomicSurprise();
+  apexRenderFearGreed(await apexFetchCached('fearGreed', null, '/api/feargreed'));
+  apexRenderVixTerm(await apexFetchCached('vixTerm', null, '/api/vix-term'));
+}
+
+async function apexLoadFundamentals(symbol) {
+  return apexFetchCached('fundamentals', symbol, `/api/fundamentals?symbol=${encodeURIComponent(symbol)}`);
+}
+async function apexLoadEarnings(symbol) {
+  return apexFetchCached('earnings', symbol, `/api/earnings?symbol=${encodeURIComponent(symbol)}`);
+}
+async function apexLoadInsiders(symbol) {
+  return apexFetchCached('insiders', symbol, `/api/insiders?symbol=${encodeURIComponent(symbol)}`);
+}
+async function apexLoadInstitutional(symbol) {
+  return apexFetchCached('institutional', symbol, `/api/institutional?symbol=${encodeURIComponent(symbol)}`);
+}
+async function apexLoadOptions(symbol) {
+  return apexFetchCached('options', symbol, `/api/options?symbol=${encodeURIComponent(symbol)}`);
+}
+async function apexLoadEconomicCalendar() {
+  return apexFetchCached('economicCalendar', null, '/api/economic-calendar');
+}
+function apexComputeStockScore(stock, fundamentals) {
+  const valueScore = Math.round((apexScoreInverse(fundamentals?.pe, 10, 40) + apexScoreInverse(fundamentals?.pb, 1.5, 8) + apexScoreInverse(fundamentals?.ev_ebitda, 8, 24)) / 3);
+  const qualityScore = Math.round((apexScoreDirect(fundamentals?.roe, 8, 30) + apexScoreDirect(fundamentals?.roic, 6, 25) + apexScoreDirect(fundamentals?.gross_margin, 20, 70) + apexScoreInverse(fundamentals?.debt_to_equity, 0.3, 2.0)) / 4);
+  const mom = APEX_MOMENTUM[stock.t] || { d1: 0, w1: 0, m1: 0 };
+  const momentumScore = Math.round(apexClamp(50 + mom.d1 * 3 + mom.w1 * 2 + mom.m1 * 1.5, 0, 100));
+  const ratingMap = { buy: 85, hold: 55, watch: 48, sell: 25 };
+  const sentimentScore = ratingMap[(stock.rating || '').toLowerCase()] ?? 50;
+  const total = Math.round(valueScore * 0.25 + qualityScore * 0.25 + momentumScore * 0.25 + sentimentScore * 0.25);
+  return { total, value:valueScore, quality:qualityScore, momentum:momentumScore, sentiment:sentimentScore };
+}
+function apexRenderStocksTable() {
+  const body = document.getElementById('usStocksBody');
+  if (!body) return;
+  body.innerHTML = US_STOCKS_FULL.map(r => {
+    const scores = APEX_STOCK_SCORES[r.t];
+    return `
+      <tr onclick="apexToggleScoreDetail('${r.t}')" style="cursor:pointer">
+        <td style="color:var(--accent);font-weight:600">${r.t}</td><td>${r.n}</td><td class="num">${r.p}</td><td class="num ${r.u?'up':'down'}">${r.chg}</td><td class="num">${r.mcap}</td><td class="num">${r.pe}</td><td class="num ${r.u?'up':'down'}">${r.epsg}</td><td class="num">${r.rev}</td><td class="num">${r.div}</td><td class="num" style="font-size:10px">${r.r52}</td><td class="num">${r.beta}</td><td>${r.rating}</td><td class="num">${apexScoreBadge(scores?.total ?? null)}</td>
+      </tr>
+      <tr class="apex-detail-row"><td colspan="13">
+        <div class="apex-detail-panel" id="score-detail-${r.t}">
+          <div class="apex-mini-heading">${r.t} Composite Breakdown</div>
+          <div class="apex-score-segments">
+            <div class="apex-score-segment"><div class="label">Value</div><div class="num" style="color:var(--gold)">${scores ? scores.value : '—'}</div><div class="apex-score-bar"><span class="apex-score-fill" style="width:${scores ? scores.value : 0}%;background:var(--gold)"></span></div></div>
+            <div class="apex-score-segment"><div class="label">Quality</div><div class="num" style="color:var(--green)">${scores ? scores.quality : '—'}</div><div class="apex-score-bar"><span class="apex-score-fill" style="width:${scores ? scores.quality : 0}%;background:var(--green)"></span></div></div>
+            <div class="apex-score-segment"><div class="label">Momentum</div><div class="num" style="color:var(--accent)">${scores ? scores.momentum : '—'}</div><div class="apex-score-bar"><span class="apex-score-fill" style="width:${scores ? scores.momentum : 0}%;background:var(--accent)"></span></div></div>
+            <div class="apex-score-segment"><div class="label">Sentiment</div><div class="num" style="color:var(--text)">${scores ? scores.sentiment : '—'}</div><div class="apex-score-bar"><span class="apex-score-fill" style="width:${scores ? scores.sentiment : 0}%;background:var(--text2)"></span></div></div>
+          </div>
+        </div>
+      </td></tr>`;
+  }).join('');
+}
+function apexRenderFactorPerformance() {
+  const el = document.getElementById('factorPerformancePanel');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="apex-table-wrap">
+      <table class="apex-table">
+        <thead><tr><th>Factor</th><th>Today %</th><th>1W %</th><th>1M %</th><th>YTD %</th></tr></thead>
+        <tbody>${APEX_FACTOR_PERF.map(r => `<tr><td>${r.factor}</td><td class="${r.today >= 0 ? 'up' : 'down'}">${r.today >= 0 ? '+' : ''}${r.today.toFixed(2)}%</td><td class="${r.w1 >= 0 ? 'up' : 'down'}">${r.w1 >= 0 ? '+' : ''}${r.w1.toFixed(1)}%</td><td class="${r.m1 >= 0 ? 'up' : 'down'}">${r.m1 >= 0 ? '+' : ''}${r.m1.toFixed(1)}%</td><td class="${r.ytd >= 0 ? 'up' : 'down'}">${r.ytd >= 0 ? '+' : ''}${r.ytd.toFixed(1)}%</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="apex-table-note" style="padding:10px 16px;">LATE CYCLE: historically favours Value and Quality over high-beta Growth.</div>`;
+}
+function apexStreak(history) {
+  const last4 = (history || []).slice(0, 4);
+  return last4.map(item => {
+    const beat = apexNum(item.eps_surprise_pct) != null ? Number(item.eps_surprise_pct) >= 0 : false;
+    return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${beat ? 'var(--green)' : 'var(--red)'};margin-right:4px;"></span>`;
+  }).join('');
+}
+async function apexRenderEarnings() {
+  const el = document.getElementById('earningsIntel');
+  if (!el) return;
+  el.innerHTML = `<div style="padding:12px 16px;font-family:var(--mono);font-size:10px;color:var(--text3)">Loading earnings intelligence…</div>`;
+  const rows = await Promise.all(US_STOCKS_FULL.map(async stock => {
+    const data = await apexLoadEarnings(stock.t);
+    const last = data?.history?.[0] || {};
+    const guide = APEX_EARNINGS_GUIDE[stock.t] || { guidance:'Maintained', revisions:'Flat' };
+    return `<tr><td style="color:var(--accent)">${stock.t}</td><td>${data?.next_earnings || '—'}</td><td>${last.eps_actual ?? '—'} / ${last.eps_estimate ?? '—'}</td><td class="${(last.eps_surprise_pct || 0) >= 0 ? 'up' : 'down'}">${last.eps_surprise_pct != null ? `${Number(last.eps_surprise_pct).toFixed(1)}%` : '—'}</td><td class="${(apexNum(last.revenue_actual) || 0) >= (apexNum(last.revenue_estimate) || Infinity) ? 'up' : 'down'}">${last.revenue_actual != null && last.revenue_estimate != null ? `${apexShortMoney(last.revenue_actual)} vs ${apexShortMoney(last.revenue_estimate)}` : '—'}</td><td>${guide.guidance}</td><td>${guide.revisions}</td><td>${apexStreak(data?.history)}</td></tr>`;
+  }));
+  el.innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Ticker</th><th>Next Earnings</th><th>EPS A / E</th><th>EPS Surprise</th><th>Revenue Surprise</th><th>Guidance</th><th>Revisions</th><th>Streak</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+async function apexRenderInsiderTransactions() {
+  const el = document.getElementById('insiderTransactions');
+  if (!el) return;
+  el.innerHTML = `<div style="padding:12px 16px;font-family:var(--mono);font-size:10px;color:var(--text3)">Loading insider transactions…</div>`;
+  const symbols = ['NVDA','MSFT','AAPL','JPM','XOM','META'];
+  const merged = [];
+  await Promise.all(symbols.map(async symbol => {
+    const data = await apexLoadInsiders(symbol);
+    (data?.transactions || []).slice(0, 5).forEach(tx => merged.push({ symbol, ...tx }));
+  }));
+  merged.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const rows = merged.slice(0, 18).map(tx => {
+    const typeText = /buy/i.test(tx.transaction_type || tx.code || '') ? 'Buy' : 'Sell';
+    const unusual = ((/CEO|CFO/i.test(tx.position || '')) && (apexNum(tx.value) || 0) > 5000000);
+    return `<tr><td>${tx.date || '—'}</td><td style="color:var(--accent)">${tx.symbol}</td><td>${tx.name || '—'}</td><td>${tx.position || '—'}</td><td class="${typeText === 'Buy' ? 'up' : 'down'}">${typeText}</td><td>${tx.shares || '—'}</td><td>${apexShortMoney(tx.value)}</td><td ${unusual ? 'style="font-weight:700;color:var(--gold)"' : ''}>${unusual ? 'unusual' : 'routine'}</td></tr>`;
+  }).join('');
+  el.innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Date</th><th>Company</th><th>Insider</th><th>Title</th><th>Buy/Sell</th><th>Shares</th><th>Value</th><th>Significance</th></tr></thead><tbody>${rows || '<tr><td colspan="8">No insider data available.</td></tr>'}</tbody></table></div>`;
+}
+async function apexRenderInstitutionalFlows() {
+  const el = document.getElementById('institutionalFlows');
+  if (!el) return;
+  el.innerHTML = `<div style="padding:12px 16px;font-family:var(--mono);font-size:10px;color:var(--text3)">Loading institutional ownership…</div>`;
+  const symbols = ['NVDA','MSFT','AAPL','JPM','XOM','META'];
+  const rows = await Promise.all(symbols.map(async symbol => {
+    const data = await apexLoadInstitutional(symbol);
+    const chg = apexNum(data?.ownership_qoq_change_pct);
+    const holders = (data?.top_holders || []).slice(0, 2).map(h => h.holder).join(', ') || '—';
+    const flag = chg == null ? 'Neutral' : chg > 0 ? 'Accumulating' : 'Distributing';
+    return `<tr><td style="color:var(--accent)">${symbol}</td><td>${apexPct(data?.institutional_ownership_pct,1)}</td><td class="${chg >= 0 ? 'up' : 'down'}">${chg == null ? '—' : `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`}</td><td>${holders}</td><td>${flag === 'Accumulating' ? '<span class="apex-badge green">Accumulating</span>' : flag === 'Distributing' ? '<span class="apex-badge red">Distributing</span>' : '<span class="apex-badge yellow">Neutral</span>'}</td></tr>`;
+  }));
+  el.innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Ticker</th><th>Inst. Ownership</th><th>QoQ Change</th><th>Top Holders</th><th>Flag</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+function apexRenderRelativeStrength() {
+  const el = document.getElementById('relativeStrengthTable');
+  if (!el) return;
+  const valCell = v => `<span class="${v > 0.5 ? 'up' : v < -0.5 ? 'down' : ''}">${v > 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+  el.innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Ticker</th><th>1W SPX</th><th>1M SPX</th><th>3M SPX</th><th>6M SPX</th><th>1W Sector</th><th>1M Sector</th><th>3M Sector</th><th>6M Sector</th><th>RS</th></tr></thead><tbody>${
+    Object.entries(APEX_RS).map(([symbol, d]) => `<tr><td style="color:var(--accent)">${symbol}</td><td>${valCell(d.spx[0])}</td><td>${valCell(d.spx[1])}</td><td>${valCell(d.spx[2])}</td><td>${valCell(d.spx[3])}</td><td>${valCell(d.sector[0])}</td><td>${valCell(d.sector[1])}</td><td>${valCell(d.sector[2])}</td><td>${valCell(d.sector[3])}</td><td>${d.rating > 80 ? '<span class="apex-badge green">Leader</span>' : d.rating < 40 ? '<span class="apex-badge red">Laggard</span>' : '<span class="apex-badge yellow">Neutral</span>'} <span style="margin-left:6px">${d.rating}</span></td></tr>`).join('')
+  }</tbody></table></div>`;
+}
+async function apexRenderOptionsIntel() {
+  const el = document.getElementById('optionsIntel');
+  if (!el) return;
+  el.innerHTML = `<div style="padding:12px 16px;font-family:var(--mono);font-size:10px;color:var(--text3)">Loading options intelligence…</div>`;
+  const symbols = ['NVDA','MSFT','AAPL','JPM','XOM','META'];
+  const rows = await Promise.all(symbols.map(async symbol => {
+    const data = await apexLoadOptions(symbol);
+    const ivp = APEX_OPTION_IVP[symbol];
+    const ratio = apexNum(data?.put_call_ratio);
+    return `<tr><td style="color:var(--accent)">${symbol}</td><td class="${ivp >= 75 ? 'down' : 'up'}">${apexPct(data?.iv30,1)}</td><td>${apexPct(APEX_OPTION_HV30[symbol],1)}</td><td class="${ivp >= 75 ? 'down' : ivp >= 55 ? 'up' : ''}">${ivp}</td><td class="${ratio != null && ratio > 1 ? 'down' : 'up'}">${ratio != null ? ratio.toFixed(2) : '—'}</td><td>${data?.max_pain ?? '—'}</td><td>${data?.unusual_activity ? '<span class="apex-badge red">Yes</span>' : '<span class="apex-badge green">No</span>'}</td></tr>`;
+  }));
+  el.innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Ticker</th><th>IV30</th><th>HV30</th><th>IV Percentile</th><th>Put/Call</th><th>Max Pain</th><th>Unusual Activity</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+async function apexLoadScores() {
+  await Promise.all(US_STOCKS_FULL.map(async stock => {
+    const fundamentals = await apexLoadFundamentals(stock.t);
+    APEX_STOCK_SCORES[stock.t] = apexComputeStockScore(stock, fundamentals || {});
+  }));
+  apexRenderStocksTable();
+}
+renderEquitiesPage = function() {
+  document.getElementById('euStocksBody').innerHTML = EU_STOCKS_FULL.map(r=>`<tr><td style="color:var(--accent);font-weight:600">${r.t}</td><td>${r.n}</td><td class="num">${r.p}</td><td class="num ${r.u?'up':'down'}">${r.chg}</td><td class="num">${r.mcap}</td><td class="num">${r.pe}</td><td class="num ${r.u?'up':'down'}">${r.epsg}</td><td class="num">${r.rev}</td><td class="num">${r.div}</td><td class="num" style="font-size:10px">${r.r52}</td><td class="num">${r.beta}</td><td>${r.rating}</td></tr>`).join('');
+  document.getElementById('sectorHeatmap').innerHTML = GICS_SECTORS.map(s=>{
+    const intensity = Math.min(100, Math.abs(s.pct)*50); const bg = s.u ? `rgba(0,230,118,${0.15+intensity/200})` : `rgba(255,68,68,${0.15+intensity/200})`;
+    return `<div class="heatmap-cell" style="background:${bg}"><div class="label">${s.n}</div><div class="pct ${s.u?'up':'down'}">${s.pct>0?'+':''}${s.pct}%</div></div>`;
+  }).join('');
+  document.getElementById('betaPanel').innerHTML = BETA_DATA.map(x=>`<div class="metric-row"><span>${x.t}</span><span>Beta ${x.b}</span><div class="meter-bar" style="max-width:120px"><div class="meter-fill" style="width:${Math.min(100,x.b*50)}%;background:var(--accent)"></div></div></div>`).join('');
+  document.getElementById('volPanel').innerHTML = VOL_DATA.map(x=>`<div class="metric-row"><span>${x.t}</span><span>HV ${x.hv}% · IV ${x.iv}%</span><span class="${x.iv>x.hv?'up':'down'}">${x.iv>x.hv?'IV>HV':''}</span></div>`).join('');
+  document.getElementById('factorBody').innerHTML = FACTOR_DATA.map(r=>`<tr><td style="color:var(--accent)">${r.t}</td><td class="num">${r.val.toFixed(2)}</td><td class="num">${r.mom.toFixed(2)}</td><td class="num">${r.qual.toFixed(2)}</td><td class="num">${r.lowv.toFixed(2)}</td><td class="num">${r.size.toFixed(2)}</td></tr>`).join('');
+  let corrHtml = '<div style="display:grid;grid-template-columns:repeat(9,1fr);gap:0;max-width:100%">';
+  corrHtml += '<div class="corr-cell header"></div>';
+  CORR_TICKERS.forEach(t=>corrHtml+=`<div class="corr-cell header">${t}</div>`);
+  for(let i=0;i<CORR_TICKERS.length;i++){ corrHtml += `<div class="corr-cell header">${CORR_TICKERS[i]}</div>`; for(let j=0;j<CORR_TICKERS.length;j++){ const v=CORR_MATRIX[i][j]; const cls = v>=0.7 ? 'none' : ''; corrHtml+=`<div class="corr-cell ${cls}">${v.toFixed(2)}</div>`; } }
+  corrHtml += '</div>';
+  document.getElementById('corrMatrix').innerHTML = corrHtml;
+  document.getElementById('analystPanel').innerHTML = ANALYST_DATA.map(a=>`<div class="metric-row"><span style="color:var(--accent)">${a.t}</span><span>B ${a.buy} / H ${a.hold} / S ${a.sell}</span></div><div class="metric-row"><span>PT ${a.pt}</span><span class="${a.up>=0?'up':'down'}">${a.up>=0?'+':''}${a.up}% upside</span></div>`).join('');
+  apexRenderStocksTable();
+  apexRenderFactorPerformance();
+  apexRenderRelativeStrength();
+  apexLoadScores();
+  apexRenderEarnings();
+  apexRenderInsiderTransactions();
+  apexRenderInstitutionalFlows();
+  apexRenderOptionsIntel();
+};
+
+function apexBuildYieldSvg(macro) {
+  const tenors = ['3M','6M','1Y','2Y','3Y','5Y','7Y','10Y','20Y','30Y'];
+  const today = [5.44,5.38,5.12,macro?.treasury?.dgs2 ?? 4.90,4.68,4.52,4.58,macro?.treasury?.dgs10 ?? 4.72,4.82,macro?.treasury?.dgs30 ?? 4.88];
+  const m3 = [5.32,5.24,5.02,4.76,4.61,4.55,4.60,4.69,4.80,4.86];
+  const y1 = [5.56,5.43,5.08,4.51,4.22,4.05,4.01,4.08,4.34,4.24];
+  const curves = [{ data:today, color:'var(--accent)', width:3 }, { data:m3, color:'#1d6f8a', width:2 }, { data:y1, color:'#5c6d79', width:2 }];
+  const minY = 3.8, maxY = 5.8, W = 860, H = 220, left = 44, bottom = 28, top = 14, innerW = W - left - 10, innerH = H - top - bottom;
+  const x = i => left + (innerW / (tenors.length - 1)) * i;
+  const y = v => top + (maxY - v) / (maxY - minY) * innerH;
+  const axes = [4.0,4.5,5.0,5.5].map(val => `<line x1="${left}" y1="${y(val)}" x2="${W-10}" y2="${y(val)}" stroke="rgba(74,104,128,0.25)" /><text x="6" y="${y(val)+4}" fill="var(--text3)" font-family="var(--mono)" font-size="9">${val.toFixed(1)}%</text>`).join('');
+  const series = curves.map(curve => {
+    const d = curve.data.map((val, idx) => `${idx === 0 ? 'M' : 'L'} ${x(idx)} ${y(val)}`).join(' ');
+    return `<path d="${d}" fill="none" stroke="${curve.color}" stroke-width="${curve.width}" stroke-dasharray="1000" stroke-dashoffset="1000" style="animation:apexDraw 1.4s ease forwards;" />`;
+  }).join('');
+  const labels = tenors.map((t, i) => `<text x="${x(i)}" y="${H-8}" fill="var(--text3)" font-family="var(--mono)" font-size="9" text-anchor="middle">${t}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" class="apex-yield-svg">${axes}<line x1="${left}" y1="${H-bottom}" x2="${W-10}" y2="${H-bottom}" stroke="var(--border2)" />${series}${labels}</svg>`;
+}
+function apexFedDotPlot() {
+  const dots = [{ x:40, y:32, label:'2025', v:'4.6%' }, { x:150, y:58, label:'2026', v:'3.6%' }, { x:260, y:80, label:'Long', v:'2.9%' }];
+  return `<svg viewBox="0 0 320 110" class="apex-dotplot"><line x1="20" y1="92" x2="300" y2="92" stroke="var(--border2)" />${dots.map(d => `<circle cx="${d.x}" cy="${d.y}" r="6" fill="var(--accent)" /><text x="${d.x}" y="104" text-anchor="middle" fill="var(--text3)" font-family="var(--mono)" font-size="9">${d.label}</text><text x="${d.x}" y="${d.y-10}" text-anchor="middle" fill="var(--text)" font-family="var(--mono)" font-size="9">${d.v}</text>`).join('')}</svg>`;
+}
+renderMacroPage = async function() {
+  const macro = await apexFetchCached('macro', null, '/api/macro');
+  const calendar = await apexLoadEconomicCalendar();
+  const spread2s10s = macro?.treasury?.dgs2 != null && macro?.treasury?.dgs10 != null ? ((macro.treasury.dgs10 - macro.treasury.dgs2) * 100).toFixed(0) : '-18';
+  const spread3m10y = macro?.treasury?.dgs10 != null ? ((macro.treasury.dgs10 - 5.44) * 100).toFixed(0) : '-72';
+  const spread5s30s = macro?.treasury?.dgs30 != null ? ((macro.treasury.dgs30 - 4.52) * 100).toFixed(0) : '+36';
+  document.getElementById('yieldCurveFull').innerHTML = apexBuildYieldSvg(macro) + `<div class="apex-spread-grid"><div class="apex-spread-box"><div class="label">2s10s</div><div class="value ${Number(spread2s10s) < 0 ? 'down' : 'up'}">${Number(spread2s10s) > 0 ? '+' : ''}${spread2s10s}bp</div><span class="apex-badge ${Number(spread2s10s) < 0 ? 'red' : 'green'}">${Number(spread2s10s) < 0 ? 'Inverted' : 'Normal'}</span></div><div class="apex-spread-box"><div class="label">3m10y</div><div class="value ${Number(spread3m10y) < 0 ? 'down' : 'up'}">${Number(spread3m10y) > 0 ? '+' : ''}${spread3m10y}bp</div><span class="apex-badge ${Number(spread3m10y) < 0 ? 'red' : 'green'}">${Number(spread3m10y) < 0 ? 'Inverted' : 'Normal'}</span></div><div class="apex-spread-box"><div class="label">5s30s</div><div class="value ${Number(spread5s30s) < 0 ? 'down' : 'up'}">${Number(spread5s30s) > 0 ? '+' : ''}${spread5s30s}bp</div><span class="apex-badge ${Number(spread5s30s) < 0 ? 'red' : 'green'}">${Number(spread5s30s) < 0 ? 'Flat' : 'Steep'}</span></div></div>`;
+  document.getElementById('fedTracker').innerHTML = `
+    <div class="apex-stack" style="padding:12px 16px;">
+      <div class="metric-row"><span>Current rate</span><span style="font-family:var(--display);font-size:22px">5.33%</span></div>
+      <div class="metric-row"><span>Real Fed Funds</span><span class="up">+2.53%</span></div>
+      <div class="metric-row"><span>Taylor Rule</span><span>4.85% <span class="apex-badge red" style="margin-left:6px;">Fed tighter than rule</span></span></div>
+      ${apexFedDotPlot()}
+      <div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Meeting</th><th>Hold</th><th>Cut</th></tr></thead><tbody><tr><td>May 7</td><td>58%</td><td>42%</td></tr><tr><td>Jun 18</td><td>49%</td><td>51%</td></tr><tr><td>Jul 30</td><td>37%</td><td>63%</td></tr></tbody></table></div>
+      <div class="apex-note">Past-cycle comparison: 2004–06 tightened into housing excess, 2015–18 normalized into low inflation, 2022–present remains the most restrictive real-rate regime of the three.</div>
+    </div>`;
+  const inflRows = [
+    ['Shelter',4.8,'↑',42], ['Energy',1.1,'↓',8], ['Food',2.7,'→',11], ['Core Goods',0.6,'↓',7], ['Core Services ex-Shelter',4.2,'↑',32]
+  ];
+  document.getElementById('inflationDashboard').innerHTML = `<div style="padding:12px 16px;"><div class="apex-mini-heading">Inflation Decomposition</div>${inflRows.map(r => `<div class="apex-contrib-row"><span>${r[0]}</span><span>${r[1]}%</span><span>${r[2]}</span><div class="apex-mini-bar"><span style="width:${r[3]}%;background:${r[0].includes('Services') ? 'var(--gold)' : 'var(--accent)'}"></span></div></div>`).join('')}<div class="apex-note" style="margin-top:10px">Supercore remains sticky in services ex-shelter, keeping the Fed biased toward patience.</div><div class="apex-table-wrap" style="margin-top:12px;"><table class="apex-table"><thead><tr><th>Breakeven</th><th>Rate</th></tr></thead><tbody><tr><td>2Y</td><td>2.64%</td></tr><tr><td>5Y</td><td>2.42%</td></tr><tr><td>10Y</td><td>2.31%</td></tr></tbody></table></div></div>`;
+  const events = (calendar?.events || []).slice(0, 6);
+  document.getElementById('econIndicators').innerHTML = `<div class="indicator-block">${ECON_INDICATORS.map(e=>`<div class="indicator-item"><div class="l">${e.l}</div><div class="v">${e.v}</div><div class="c ${e.u?'up':'down'}">${e.c}</div></div>`).join('')}</div><div class="apex-mini-heading" style="margin-top:14px;">Economic Calendar Snapshot</div><div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Date</th><th>Event</th><th>Country</th><th>Actual</th><th>Estimate</th><th>Impact</th></tr></thead><tbody>${events.map(ev => `<tr><td>${ev.date || '—'}</td><td>${ev.event || '—'}</td><td>${ev.country || '—'}</td><td>${ev.actual ?? '—'}</td><td>${ev.estimate ?? '—'}</td><td>${String(ev.impact || 'med').toLowerCase() === 'high' ? '<span class="apex-badge red">high</span>' : String(ev.impact || 'med').toLowerCase() === 'low' ? '<span class="apex-badge green">low</span>' : '<span class="apex-badge yellow">medium</span>'}</td></tr>`).join('') || '<tr><td colspan="6">No calendar events available.</td></tr>'}</tbody></table></div>`;
+  const globalRows = [
+    ['Fed','5.33%','Held Mar 19','May 7','Hold / late cut','hawkish'], ['ECB','3.75%','-25bp Mar 6','Apr 17','More easing','dovish'],
+    ['BOE','5.25%','Held Feb 6','Mar 19','Hold','neutral'], ['BOJ','0.10%','Held Feb 20','Apr 25','Slow hikes','hawkish'],
+    ['BOC','4.50%','Held Mar 5','Apr 16','Cut bias','dovish'], ['RBA','4.35%','Held Feb 18','Apr 1','Hold','neutral']
+  ];
+  document.getElementById('globalRates').innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Bank</th><th>Current Rate</th><th>Last Change</th><th>Next Meeting</th><th>Market Expects</th><th>Bias</th></tr></thead><tbody>${globalRows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5] === 'hawkish' ? '<span class="apex-badge red">hawkish</span>' : r[5] === 'dovish' ? '<span class="apex-badge green">dovish</span>' : '<span class="apex-badge yellow">neutral</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+  document.getElementById('currencyDashboard').innerHTML = `<div style="padding:12px 16px;"><div class="metric-row"><span>DXY</span><span style="font-family:var(--display);font-size:22px">103.4</span><span class="down">↓ mild downtrend</span></div><div class="apex-table-wrap" style="margin-top:10px;"><table class="apex-table"><thead><tr><th>Pair</th><th>Spot</th><th>1D</th><th>1W</th><th>1M</th></tr></thead><tbody><tr><td>EUR/USD</td><td>1.084</td><td class="up">+0.1%</td><td class="up">+0.4%</td><td class="up">+1.1%</td></tr><tr><td>USD/JPY</td><td>149.2</td><td class="down">-0.3%</td><td class="down">-0.8%</td><td class="up">+0.6%</td></tr><tr><td>GBP/USD</td><td>1.264</td><td class="up">+0.1%</td><td class="up">+0.5%</td><td class="up">+1.2%</td></tr><tr><td>AUD/USD</td><td>0.672</td><td class="up">+0.2%</td><td class="up">+0.7%</td><td class="up">+1.8%</td></tr><tr><td>USD/CAD</td><td>1.351</td><td class="down">-0.1%</td><td class="down">-0.4%</td><td class="up">+0.2%</td></tr></tbody></table></div><div class="apex-mini-heading" style="margin-top:12px;">Carry Trades</div><div class="apex-carry-list"><div>Long MXN / short JPY: yield differential remains the cleanest carry.</div><div>Long INR / short EUR: stable carry with softer ECB path.</div><div>Long BRL / short CHF: high carry but materially higher headline risk.</div></div><div class="apex-note" style="margin-top:10px">PPP note: JPY screens undervalued vs USD, CHF screens rich after safe-haven inflows.</div></div>`;
+  document.getElementById('recessionTracker').innerHTML = `<div style="padding:12px 16px;"><div class="apex-big-number" style="font-size:32px;color:var(--gold)">41%</div><div class="apex-note">Aggregate recession probability, weighted across curve, spreads, PMI, labor, and LEI.</div><div class="apex-table-wrap" style="margin-top:12px;"><table class="apex-table"><thead><tr><th>Model</th><th>Prob.</th><th>Description</th></tr></thead><tbody><tr><td>Yield Curve</td><td class="down">58%</td><td>Persistent inversion still sends the loudest warning.</td></tr><tr><td>Credit Spreads</td><td class="yellow">33%</td><td>HY spreads are contained but no longer complacent.</td></tr><tr><td>PMI</td><td class="down">44%</td><td>Manufacturing contraction offsets services resilience.</td></tr><tr><td>Labor Market</td><td class="up">21%</td><td>Payrolls still imply expansion, just with slower momentum.</td></tr><tr><td>LEI</td><td class="down">49%</td><td>Leading indicators remain soft relative to soft-landing hopes.</td></tr></tbody></table></div><div class="apex-note" style="margin-top:10px">Historical accuracy is strongest for the curve model, but false positives rise when fiscal support is still strong.</div></div>`;
+  document.getElementById('geoRiskMonitor').innerHTML = GEO_RISK.map(g=>`<div class="metric-row"><span style="color:var(--gold)">${g.t}</span><span style="font-size:10px;color:var(--text2)">${g.d}</span></div>`).join('');
+};
+
+function apexRenderDurationCalculator(deltaBp = 100) {
+  const instruments = [
+    { t:'TLT', dur:17.5 }, { t:'AGG', dur:6.3 }, { t:'HYG', dur:3.5 }, { t:'EMB', dur:7.4 }, { t:'LQD', dur:8.9 }, { t:'60/40', dur:4.6 }
+  ];
+  const delta = deltaBp / 10000;
+  return `<div style="padding:12px 16px;"><div class="apex-slider-wrap"><div class="metric-row"><span>Rate Shock</span><span style="font-family:var(--display);font-size:20px">${deltaBp > 0 ? '+' : ''}${deltaBp}bp</span></div><input id="durationShock" class="apex-slider" type="range" min="-200" max="200" step="25" value="${deltaBp}" oninput="apexUpdateDuration(this.value)" /></div><div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Instrument</th><th>Duration</th><th>Price Change</th><th>$ Impact on $100k</th><th>DV01</th></tr></thead><tbody>${instruments.map(row => {
+    const pct = -(row.dur * delta) * 100;
+    const dollars = 100000 * (pct / 100);
+    const dv01 = row.dur * 100000 * 0.0001;
+    return `<tr><td style="color:var(--accent)">${row.t}</td><td>${row.dur.toFixed(1)}</td><td class="${pct <= 0 ? 'down' : 'up'}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</td><td class="${dollars <= 0 ? 'down' : 'up'}">${dollars >= 0 ? '+' : ''}$${Math.round(dollars).toLocaleString()}</td><td>$${Math.round(dv01).toLocaleString()}</td></tr>`;
+  }).join('')}</tbody></table></div></div>`;
+}
+function apexUpdateDuration(val) {
+  const container = document.getElementById('durationCalculator');
+  if (!container) return;
+  container.innerHTML = apexRenderDurationCalculator(Number(val));
+}
+renderFixedIncomePage = function() {
+  document.getElementById('fixedYieldCurve').innerHTML = `${apexBuildYieldSvg({ treasury:{ dgs2:4.90, dgs10:4.72, dgs30:4.88 } })}<div class="apex-table-note" style="padding:10px 0 0;">Interactive tenor context: today vs 3M ago vs 1Y ago, with inversion visible across the front end of the curve.</div>`;
+  const sovereignRows = [
+    { c:'US', y2:4.90, y10:4.72, y30:4.88, real:2.10, rating:'AA+', w:'+4bp' }, { c:'Germany', y2:2.88, y10:2.52, y30:2.68, real:0.34, rating:'AAA', w:'-2bp' },
+    { c:'UK', y2:4.42, y10:4.28, y30:4.55, real:1.42, rating:'AA', w:'+3bp' }, { c:'Japan', y2:0.28, y10:0.95, y30:1.82, real:-0.20, rating:'A+', w:'+5bp' },
+    { c:'France', y2:3.12, y10:2.88, y30:3.22, real:0.54, rating:'AA-', w:'+1bp' }, { c:'Italy', y2:3.82, y10:3.68, y30:4.12, real:1.20, rating:'BBB', w:'+6bp' },
+    { c:'Spain', y2:3.08, y10:3.02, y30:3.41, real:0.88, rating:'A', w:'+2bp' }, { c:'Australia', y2:3.96, y10:4.11, y30:4.52, real:1.36, rating:'AAA', w:'+4bp' },
+    { c:'Canada', y2:4.08, y10:3.76, y30:3.92, real:1.28, rating:'AAA', w:'-1bp' }, { c:'China', y2:1.84, y10:2.31, y30:2.56, real:0.62, rating:'A+', w:'-3bp' }
+  ];
+  document.getElementById('sovereignBonds').innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Country</th><th>2Y</th><th>10Y</th><th>30Y</th><th>2s10s</th><th>10Y real</th><th>Rating</th><th>1W chg</th></tr></thead><tbody>${sovereignRows.map(s => {
+    const spread = s.y10 - s.y2;
+    return `<tr><td>${s.c}</td><td>${s.y2.toFixed(2)}%</td><td>${s.y10.toFixed(2)}%</td><td>${s.y30.toFixed(2)}%</td><td class="${spread < 0 ? 'down' : 'up'}">${spread.toFixed(2)}%</td><td>${s.real.toFixed(2)}%</td><td>${s.rating}</td><td class="${s.w.startsWith('-') ? 'down' : 'up'}">${s.w}</td></tr>`;
+  }).join('')}</tbody></table></div>`;
+  document.getElementById('creditDashboard').innerHTML = CREDIT_MKT.map(c=>`<div class="metric-row"><span>${c.n}</span><span class="dp-sig ${c.st}">${c.v}</span></div>`).join('');
+  document.getElementById('bondETFTracker').innerHTML = `<table class="full-table"><thead><tr><th>ETF</th><th class="num">Duration</th><th class="num">Yield</th><th class="num">Flows</th></tr></thead><tbody>${BOND_ETFS.map(b=>`<tr><td style="color:var(--accent)">${b.t}</td><td class="num">${b.dur}</td><td class="num">${b.y}%</td><td class="num">${b.flow}</td></tr>`).join('')}</tbody></table><div class="apex-table-note" style="padding:10px 16px;">Long duration remains the highest-convexity rate-cut beneficiary, while credit ETFs still look carry-rich but less insulated if spreads reprice wider.</div>`;
+  document.getElementById('privateCreditStress').innerHTML = `<div style="padding:12px 16px;"><div class="metric-row"><span>BREIT redemption queue</span><span class="down">2.4% of NAV pending</span></div><div class="metric-row"><span>BREIT monthly gate</span><span class="yellow">1.1x monthly limit used</span></div><div class="metric-row"><span>Blue Owl OBDC</span><span class="yellow">Price 0.96x NAV · redemptions manageable</span></div><div class="metric-row"><span>2021–22 vintage risk</span><span class="down">Highest covenant pressure</span></div><div class="apex-note" style="margin-top:10px">Narrative: floating-rate origination vintages from 2021–22 face the highest default and amendment risk. If private marks reset lower, the first read-through to public markets is usually in listed alternatives and credit-sensitive asset managers.</div><div class="apex-mini-heading" style="margin-top:12px;">Most Exposed Public Tickers</div><div class="apex-bullet-list"><div><span style="color:var(--accent)">BX</span> via BREIT / private credit sentiment</div><div><span style="color:var(--accent)">BLK</span> via alternatives and spread beta</div><div><span style="color:var(--accent)">OWL</span> via direct-lending platform optics</div></div></div>`;
+  document.getElementById('realRatesDashboard').innerHTML = REAL_RATES.map(r=>`<div class="metric-row"><span>${r.n}</span><span>${r.v}</span></div>`).join('');
+  document.getElementById('fedBalanceSheet').innerHTML = FED_BS.map(f=>`<div class="metric-row"><span>${f.n}</span><span>${f.v}</span></div>`).join('');
+  document.getElementById('durationCalculator').innerHTML = apexRenderDurationCalculator(100);
+};
+
+function apexCorrelationHeatmap() {
+  const names = ['NVDA','MSFT','JPM','XOM','GLD','BX'];
+  const data = [[1,0.74,0.31,0.18,-0.12,0.42],[0.74,1,0.35,0.14,-0.08,0.44],[0.31,0.35,1,0.28,-0.18,0.61],[0.18,0.14,0.28,1,0.21,0.26],[-0.12,-0.08,-0.18,0.21,1,-0.04],[0.42,0.44,0.61,0.26,-0.04,1]];
+  let html = `<div class="apex-heatline"><div class="apex-heat-cell" style="background:var(--bg3)"></div>${names.map(n=>`<div class="apex-heat-cell" style="background:var(--bg3)">${n}</div>`).join('')}`;
+  data.forEach((row, i) => {
+    html += `<div class="apex-heat-cell" style="background:var(--bg3)">${names[i]}</div>`;
+    row.forEach(v => {
+      const alpha = Math.abs(v) * 0.45 + 0.05;
+      const bg = v >= 0 ? `rgba(0,212,255,${alpha})` : `rgba(255,68,68,${alpha})`;
+      html += `<div class="apex-heat-cell" style="background:${bg}">${v.toFixed(2)}</div>`;
+    });
+  });
+  return html + '</div>';
+}
+function apexAlphaStats() {
+  const rows = APEX_ALPHA_ROWS.map(r => {
+    const pnl = r.direction === 'Long' ? ((r.current - r.entry) / r.entry) * 100 : ((r.entry - r.current) / r.entry) * 100;
+    return { ...r, pnl };
+  });
+  const closed = rows.filter(r => r.status === 'Closed');
+  const sample = rows.length ? rows : [{ pnl:0 }];
+  const wins = sample.filter(r => r.pnl > 0);
+  const losses = sample.filter(r => r.pnl < 0);
+  const hit = sample.length ? (wins.length / sample.length) * 100 : 0;
+  const avgWin = wins.length ? wins.reduce((a,b)=>a+b.pnl,0)/wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((a,b)=>a+b.pnl,0)/losses.length : 0;
+  const profitFactor = losses.length ? Math.abs(wins.reduce((a,b)=>a+b.pnl,0) / losses.reduce((a,b)=>a+b.pnl,0)) : wins.length ? 999 : 0;
+  const sharpe = sample.length > 1 ? (sample.reduce((a,b)=>a+b.pnl,0)/sample.length) / (Math.sqrt(sample.reduce((a,b)=>a+Math.pow(b.pnl - (sample.reduce((x,y)=>x+y.pnl,0)/sample.length),2),0)/sample.length) || 1) : 0;
+  return { hit, avgWin, avgLoss, profitFactor, sharpe, rows, closed };
+}
+function apexRenderAlphaTracker() {
+  const el = document.getElementById('alphaTracker');
+  if (!el) return;
+  const stats = apexAlphaStats();
+  el.innerHTML = `
+    <div class="apex-journal-form">
+      <input id="alphaDate" type="date" value="${APEX_ALPHA_EDIT ? APEX_ALPHA_EDIT.date : '2026-03-10'}" />
+      <input id="alphaSymbol" type="text" placeholder="Symbol" value="${APEX_ALPHA_EDIT ? APEX_ALPHA_EDIT.symbol : ''}" />
+      <select id="alphaDirection"><option ${APEX_ALPHA_EDIT?.direction === 'Long' ? 'selected' : ''}>Long</option><option ${APEX_ALPHA_EDIT?.direction === 'Short' ? 'selected' : ''}>Short</option></select>
+      <input id="alphaEntry" type="number" step="0.01" placeholder="Entry" value="${APEX_ALPHA_EDIT ? APEX_ALPHA_EDIT.entry : ''}" />
+      <input id="alphaCurrent" type="number" step="0.01" placeholder="Current" value="${APEX_ALPHA_EDIT ? APEX_ALPHA_EDIT.current : ''}" />
+      <input id="alphaThesis" type="text" placeholder="Thesis" value="${APEX_ALPHA_EDIT ? APEX_ALPHA_EDIT.thesis : ''}" />
+      <select id="alphaStatus"><option ${APEX_ALPHA_EDIT?.status === 'Open' ? 'selected' : ''}>Open</option><option ${APEX_ALPHA_EDIT?.status === 'Closed' ? 'selected' : ''}>Closed</option></select>
+      <div class="apex-journal-actions"><button class="apex-btn primary" onclick="apexSaveAlphaTrade()">${APEX_ALPHA_EDIT ? 'Update' : 'Add'}</button><button class="apex-btn" onclick="apexResetAlphaForm()">Reset</button><button class="apex-btn" onclick="apexExportAlphaCSV()">Export CSV</button></div>
+    </div>
+    <div style="padding:12px 16px;" class="apex-cols-3">
+      <div class="apex-score-segment"><div class="label">Hit Rate</div><div class="num">${stats.hit.toFixed(1)}%</div></div>
+      <div class="apex-score-segment"><div class="label">Avg Win / Loss</div><div class="num">${stats.avgWin.toFixed(1)} / ${stats.avgLoss.toFixed(1)}</div></div>
+      <div class="apex-score-segment"><div class="label">Profit Factor · Sharpe</div><div class="num">${stats.profitFactor === 999 ? '∞' : stats.profitFactor.toFixed(2)} · ${stats.sharpe.toFixed(2)}</div></div>
+    </div>
+    <div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Date</th><th>Symbol</th><th>Direction</th><th>Entry</th><th>Current</th><th>P&amp;L%</th><th>Thesis</th><th>Status</th><th></th></tr></thead><tbody>${stats.rows.map((r, idx) => `<tr><td>${r.date}</td><td style="color:var(--accent)">${r.symbol}</td><td>${r.direction}</td><td>${r.entry}</td><td>${r.current}</td><td class="${r.pnl >= 0 ? 'up' : 'down'}">${r.pnl >= 0 ? '+' : ''}${r.pnl.toFixed(2)}%</td><td>${r.thesis}</td><td>${r.status}</td><td><button class="apex-btn" onclick="apexEditAlphaTrade(${idx})">Edit</button> <button class="apex-btn" onclick="apexDeleteAlphaTrade(${idx})">Delete</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function apexSaveAlphaTrade() {
+  const trade = {
+    date: document.getElementById('alphaDate').value,
+    symbol: document.getElementById('alphaSymbol').value.trim().toUpperCase(),
+    direction: document.getElementById('alphaDirection').value,
+    entry: Number(document.getElementById('alphaEntry').value),
+    current: Number(document.getElementById('alphaCurrent').value),
+    thesis: document.getElementById('alphaThesis').value.trim(),
+    status: document.getElementById('alphaStatus').value
+  };
+  if (!trade.date || !trade.symbol || !Number.isFinite(trade.entry) || !Number.isFinite(trade.current)) return;
+  if (APEX_ALPHA_EDIT && Number.isInteger(APEX_ALPHA_EDIT.index)) APEX_ALPHA_ROWS[APEX_ALPHA_EDIT.index] = trade;
+  else APEX_ALPHA_ROWS.unshift(trade);
+  APEX_ALPHA_EDIT = null;
+  apexRenderAlphaTracker();
+}
+function apexEditAlphaTrade(index) { APEX_ALPHA_EDIT = { ...APEX_ALPHA_ROWS[index], index }; apexRenderAlphaTracker(); }
+function apexDeleteAlphaTrade(index) { APEX_ALPHA_ROWS.splice(index, 1); if (APEX_ALPHA_EDIT?.index === index) APEX_ALPHA_EDIT = null; apexRenderAlphaTracker(); }
+function apexResetAlphaForm() { APEX_ALPHA_EDIT = null; apexRenderAlphaTracker(); }
+function apexExportAlphaCSV() {
+  const headers = ['Date','Symbol','Direction','Entry','Current','PnL%','Thesis','Status'];
+  const lines = APEX_ALPHA_ROWS.map(r => {
+    const pnl = r.direction === 'Long' ? ((r.current - r.entry) / r.entry) * 100 : ((r.entry - r.current) / r.entry) * 100;
+    return [r.date,r.symbol,r.direction,r.entry,r.current,pnl.toFixed(2),`"${String(r.thesis).replace(/"/g,'""')}"`,r.status].join(',');
+  });
+  const blob = new Blob([[headers.join(','), ...lines].join('\n')], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'apex-alpha-tracker.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+renderSignalsPage = function() {
+  document.getElementById('signalsConvictionBoard').innerHTML = SIGNALS_FULL.map(s => {
+    const note = APEX_SIGNAL_NOTES[s.t] || { summary:s.base, metrics:[], dates:[], size:'Size TBD', corr:'Correlation TBD' };
+    return `<div class="signal-card"><div class="sc-ticker">${s.t}</div><div class="sc-meta">Entry $${s.entry} · Now $${s.now} · Target $${s.target} · Stop $${s.stop} · R/R ${s.rr} · Size: 2-4%</div><div class="sc-thesis">${note.summary}</div><div class="sc-meta">Thesis strength: ${s.strength}/10</div><div class="meter-bar"><div class="meter-fill" style="width:${s.strength*10}%;background:var(--accent)"></div></div><div class="apex-collapse"><div class="apex-cols-3"><div class="sc-case"><div class="case-label">Bull</div><div>${s.bull}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Demand remains resilient</div><div>Operating leverage expands</div><div>Valuation remains supported</div></div></div><div class="sc-case"><div class="case-label">Base</div><div>${s.base}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Consensus tracks current guide</div><div>Macro stays late cycle</div><div>Risk premium remains moderate</div></div></div><div class="sc-case"><div class="case-label">Bear</div><div>${s.bear}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Multiple compresses</div><div>Earnings revisions fade</div><div>Liquidity worsens</div></div></div></div><div class="apex-cols-2" style="margin-top:12px"><div><div class="apex-mini-heading">Key Metrics To Watch</div><div class="apex-bullet-list">${note.metrics.map(x=>`<div>${x}</div>`).join('')}</div><div class="apex-mini-heading" style="margin-top:12px">Catalyst Calendar</div><div class="apex-bullet-list">${note.dates.map(x=>`<div>${x}</div>`).join('')}</div></div><div><div class="apex-mini-heading">Position Sizing Rationale</div><div class="apex-note">${note.size}</div><div class="apex-mini-heading" style="margin-top:12px">Correlation Risk Notes</div><div class="apex-note">${note.corr}</div></div></div></div></div>`;
+  }).join('');
+  document.getElementById('signalsWatchlist').innerHTML = WATCHLIST.map(w=>`<div class="metric-row"><span style="color:var(--accent)">${w.t}</span><span>${w.th}</span></div>`).join('');
+  const beta = SIGNALS_FULL.reduce((sum, s) => sum + (parseFloat((US_STOCKS_FULL.find(x => x.t === s.t)?.beta) || (s.t === 'GLD' ? '0.18' : '1.00'))), 0) / SIGNALS_FULL.length;
+  document.getElementById('portfolioRiskMetrics').innerHTML = `<div style="padding:12px 16px;"><div class="metric-row"><span>Portfolio beta</span><span style="font-family:var(--display);font-size:22px">${beta.toFixed(2)}</span></div><div class="apex-mini-heading" style="margin-top:10px">Sector Concentration</div><div class="apex-stack"><div class="apex-breadth-row"><span>Technology</span><div class="apex-spark"><div class="apex-mini-bar"><span style="width:36%;background:var(--accent)"></span></div></div><span>36%</span></div><div class="apex-breadth-row"><span>Financials</span><div class="apex-spark"><div class="apex-mini-bar"><span style="width:24%;background:var(--green)"></span></div></div><span>24%</span></div><div class="apex-breadth-row"><span>Energy</span><div class="apex-spark"><div class="apex-mini-bar"><span style="width:14%;background:var(--oil)"></span></div></div><span>14%</span></div></div><div class="apex-mini-heading" style="margin-top:12px">Factor Tilts</div><div class="apex-note">Net tilt remains long quality growth with a tactical energy and gold hedge; low-vol exposure is underweight.</div><div class="apex-mini-heading" style="margin-top:12px">Correlation Heatmap</div>${apexCorrelationHeatmap()}<div class="apex-mini-heading" style="margin-top:12px">Scenario Analysis</div><div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Scenario</th><th>Est. Return</th></tr></thead><tbody><tr><td>Soft landing</td><td class="up">+11%</td></tr><tr><td>Recession</td><td class="down">-14%</td></tr><tr><td>Stagflation</td><td class="down">-6%</td></tr><tr><td>Risk-off shock</td><td class="down">-11%</td></tr></tbody></table></div><div class="metric-row" style="margin-top:12px"><span>VaR (1M, 95%)</span><span class="down">-8.6%</span></div><div class="metric-row"><span>Max drawdown est.</span><span class="down">-17.5%</span></div></div>`;
+  document.getElementById('signalsPerfTracker').innerHTML = SIGNALS_FULL.map(s=>`<div class="metric-row"><span>${s.t}</span><span>Signal ${s.date}</span><span class="${s.ret>=0?'up':'down'}">${s.ret>=0?'+':''}${s.ret}%</span></div>`).join('');
+  apexRenderAlphaTracker();
+};
+
+aiAddMessage = function(role, text, meta) {
+  const box = document.getElementById('aiMessages');
+  const isUser = role === 'user';
+  const div = document.createElement('div');
+  div.style.cssText = `display:flex;flex-direction:column;align-items:${isUser?'flex-end':'flex-start'};animation:fadeIn 0.25s ease;`;
+  const bubble = document.createElement('div');
+  bubble.style.cssText = `max-width:80%;padding:10px 14px;border:1px solid ${isUser?'var(--accent2)':'var(--border2)'};background:${isUser?'rgba(0,212,255,0.06)':'var(--bg3)'};color:var(--text);font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word;`;
+  bubble.textContent = text;
+  const label = document.createElement('div');
+  label.style.cssText = 'font-size:9px;color:var(--text3);margin-top:4px;letter-spacing:1px;';
+  label.textContent = isUser ? 'YOU' : 'AI ANALYST (Groq Llama 3.3 70B)';
+  div.appendChild(bubble);
+  div.appendChild(label);
+  if (meta && !isUser) {
+    const metaEl = document.createElement('div');
+    metaEl.className = 'apex-ai-meta';
+    metaEl.textContent = `Model: Llama-3.3-70B · ~${meta.tokens} tokens · ${meta.seconds}s`;
+    div.appendChild(metaEl);
+  }
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+};
+sendAI = async function() {
+  const input = document.getElementById('aiInput');
+  const userMsg = input.value.trim();
+  if (!userMsg) return;
+  aiAddMessage('user', userMsg);
+  input.value = '';
+  aiSetLoading(true);
+  const started = Date.now();
+  try {
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userMsg })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const seconds = ((Date.now() - started) / 1000).toFixed(1);
+    const tokens = Math.max(1, Math.round((data.response || '').length / 4));
+    aiAddMessage('ai', data.response, { tokens, seconds });
+  } catch (e) {
+    aiAddMessage('ai', 'Error: ' + e.message + '\n\nCheck that the APEX server is running and GROQ_API_KEY is set on the backend.', { tokens: 0, seconds: ((Date.now() - started) / 1000).toFixed(1) });
+  } finally {
+    aiSetLoading(false);
+  }
+};
+clearAIChat = function() { document.getElementById('aiMessages').innerHTML = ''; };
+aiQuick = function(prompt) {
+  document.getElementById('aiInput').value = prompt;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-page="ai"]').classList.add('active');
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('aiPage').classList.add('active');
+  sendAI();
+};
+
+const apexOriginalRefreshLiveData = refreshLiveData;
+refreshLiveData = async function() {
+  await apexOriginalRefreshLiveData();
+  renderOverviewExtensions();
+};
+
+renderOverviewExtensions();
 // ─────────────────────────────────────────────────────────────────────────
 
 // PRICE FLICKER
