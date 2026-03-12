@@ -141,8 +141,8 @@
   .ms-sub{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px;}
 
   /* NEWS */
-  .news-panel{grid-column:4;grid-row:1/5;display:flex;flex-direction:column;}
-  .news-feed{flex:1;overflow-y:auto;max-height:calc(100vh - 200px);}
+  .news-panel{grid-column:4;grid-row:1/5;display:flex;flex-direction:column;align-self:stretch;}
+  .news-feed{flex:1;overflow-y:auto;min-height:0;}
   .news-item{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;}
   .news-item:hover{background:rgba(0,212,255,0.03);}
   .news-item.breaking::before{content:'BREAKING';font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--red);border:1px solid var(--red);padding:1px 6px;display:inline-block;margin-bottom:5px;}
@@ -688,10 +688,9 @@
   </div>
 
   <div class="card" style="grid-column:1/4;">
-    <div class="card-header"><span class="card-title">Economic Surprise Tracker</span><span class="card-badge">Hardcoded Placeholder</span></div>
+    <div class="card-header"><span class="card-title">Economic Surprise Tracker</span><span class="card-badge">US</span></div>
     <div style="padding:0 16px 12px;">
       <div id="economicSurpriseTracker"></div>
-      <div class="apex-todo" style="margin-top:10px;">TODO: plug `/api/economic-calendar` into the surprise table once the mapping logic is finalized.</div>
     </div>
   </div>
 
@@ -959,9 +958,15 @@
       <div id="inflationDashboard"></div>
     </div>
   </div>
-  <div class="card">
-    <div class="card-header"><span class="card-title">Economic Indicators</span><span class="card-badge">GDP · UNEMP · RETAIL · PMI · HOUSING</span></div>
-    <div class="indicator-block" id="econIndicators"></div>
+  <div class="panel-2col">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Economic Indicators</span><span class="card-badge">GDP · UNEMP · RETAIL · PMI · HOUSING</span></div>
+      <div class="indicator-block" id="econIndicators"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Macro Signal Scorecard</span><span class="card-badge">LIVE</span></div>
+      <div id="macroScorecard"></div>
+    </div>
   </div>
   <div class="panel-2col">
     <div class="card">
@@ -1242,6 +1247,7 @@ async function refreshLiveData() {
   if (btn) { btn.classList.add('loading'); btn.textContent = '…'; }
   const usSymbols = ['NVDA','MSFT','AAPL','GOOGL','META','JPM','GS','BAC','BX','BLK','XOM','AMD'];
   const euSymbols = ['ASML','SAP','LVMH','SHEL','HSBA','SIE','TTE','NESN'];
+  const euApiSymbols = ['ASML.AS','SAP.DE','MC.PA','SHEL.L','HSBA.L','SIE.DE','TTE.PA','NESN.SW'];
   const tickerMap = [
     { bar: 'SPX', api: 'SPY' }, { bar: 'NDX', api: 'QQQ' },
     { bar: 'NVDA', api: 'NVDA' }, { bar: 'MSFT', api: 'MSFT' }, { bar: 'AAPL', api: 'AAPL' }, { bar: 'META', api: 'META' },
@@ -1249,7 +1255,7 @@ async function refreshLiveData() {
     { bar: 'SILVER', api: 'SLV' }, { bar: 'BTC', api: 'IBIT' }, { bar: 'ASML', api: 'ASML' }
   ];
   const commodityMap = [{ name: 'GOLD', api: 'GLD' }, { name: 'SILVER', api: 'SLV' }, { name: 'WTI CRUDE', api: 'USO' }, { name: 'BRENT', api: 'BNO' }];
-  const allApiSymbols = [...usSymbols, ...euSymbols, 'SPY', 'QQQ', 'GLD', 'SLV', 'USO', 'BNO', 'IBIT'];
+  const allApiSymbols = [...usSymbols, ...euApiSymbols, 'SPY', 'QQQ', 'GLD', 'SLV', 'USO', 'BNO', 'IBIT'];
   const quotes = await fetchProxyQuotes(allApiSymbols);
   const treasury = await fetchProxyTreasury();
 
@@ -1273,8 +1279,9 @@ async function refreshLiveData() {
   });
 
   // EU stocks
-  euSymbols.forEach(s => {
-    const q = quotes[s];
+  euSymbols.forEach((s, i) => {
+    const apiSym = euApiSymbols[i];
+    const q = quotes[apiSym];
     if (q) {
       const idx = EUD.findIndex(x => x.s === s);
       if (idx >= 0) {
@@ -1325,8 +1332,8 @@ async function refreshLiveData() {
   }
 
   // Re-render UI
-  if (document.getElementById('usStocks')) document.getElementById('usStocks').innerHTML = USD.map(x=>`<div class="stock-row" onclick="qs('${x.s} ${x.n}')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
-  if (document.getElementById('euStocks')) document.getElementById('euStocks').innerHTML = EUD.map(x=>`<div class="stock-row" onclick="qs('${x.s} ${x.n} European stock')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice" style="font-size:11px">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
+  if (document.getElementById('usStocks')) document.getElementById('usStocks').innerHTML = USD.map(x=>`<div class="stock-row" onclick="qs('${x.s}')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
+  if (document.getElementById('euStocks')) document.getElementById('euStocks').innerHTML = EUD.map(x=>`<div class="stock-row" onclick="qs('${x.s}')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice" style="font-size:11px">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
   if (document.getElementById('ticker')) document.getElementById('ticker').innerHTML = [...TD,...TD].map(x=>`<div class="ticker-item"><span style="color:var(--text2);font-weight:500">${x.s}</span><span style="color:var(--text)">${x.v}</span><span class="${x.u?'up':'down'}">${x.c}</span></div>`).join('');
   if (document.getElementById('commods')) document.getElementById('commods').innerHTML = COMD.map(x=>`<div class="com-row" onclick="qs('${x.q}')"><div class="com-icon">${x.icon}</div><div style="flex:1"><div class="com-name" style="color:${x.col}">${x.name}</div><div class="com-unit">${x.unit}</div><div class="com-bar"><div class="com-fill" style="width:${x.w}%;background:linear-gradient(90deg,${x.grad})"></div></div></div><div style="text-align:right"><div class="com-price" style="color:${x.col}">${x.price}</div><div class="${x.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${x.chg}</div><div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${x.range}</div></div></div>`).join('');
   if (typeof SI !== 'undefined' && SI.eq) SI.eq = [...USD.map(x=>({...x,type:'US EQUITY'})),...EUD.map(x=>({...x,type:'EU EQUITY'}))];
@@ -1443,7 +1450,7 @@ const USD=[
   {s:'BX',n:'Blackstone',p:'$128.40',c:'-1.2%',u:0},{s:'BLK',n:'BlackRock',p:'$812.20',c:'+0.3%',u:1},
   {s:'XOM',n:'ExxonMobil',p:'$118.30',c:'+1.9%',u:1},{s:'AMD',n:'Advanced Micro Devices',p:'$182.60',c:'+2.4%',u:1},
 ];
-document.getElementById('usStocks').innerHTML=USD.map(x=>`<div class="stock-row" onclick="qs('${x.s} ${x.n}')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
+document.getElementById('usStocks').innerHTML=USD.map(x=>`<div class="stock-row" onclick="qs('${x.s}')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
 
 // EU STOCKS
 const EUD=[
@@ -1452,7 +1459,7 @@ const EUD=[
   {s:'HSBA',n:'HSBC · FTSE 100',p:'£6.42',c:'+0.6%',u:1},{s:'SIE',n:'Siemens · DAX',p:'€182',c:'+0.7%',u:1},
   {s:'TTE',n:'TotalEnergies · CAC',p:'€62.40',c:'+2.1%',u:1},{s:'NESN',n:'Nestlé · SMI',p:'CHF94',c:'-0.2%',u:0},
 ];
-document.getElementById('euStocks').innerHTML=EUD.map(x=>`<div class="stock-row" onclick="qs('${x.s} ${x.n} European stock')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice" style="font-size:11px">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
+document.getElementById('euStocks').innerHTML=EUD.map(x=>`<div class="stock-row" onclick="qs('${x.s}')"><div><div class="ssym">${x.s}</div><div class="sname">${x.n}</div></div><div class="sprice" style="font-size:11px">${x.p}</div><div class="schg ${x.u?'up bg-up':'down bg-down'}">${x.c}</div></div>`).join('');
 
 // COMMODITIES
 const COMD=[
@@ -1782,7 +1789,7 @@ function showDetail(q){
 
 function closeDetail(){document.getElementById('detailPanel').classList.remove('open');document.getElementById('searchInput').value='';}
 
-function qs(q){document.getElementById('searchInput').value=q;runStockSearch(q.toUpperCase());}
+function qs(q){const ticker=(q||'').trim().split(/\s+/)[0];if(ticker){document.getElementById('searchInput').value=ticker;runStockSearch(ticker.toUpperCase());}}
 function doSearch(){const q=document.getElementById('searchInput').value.trim();if(q)runStockSearch(q.toUpperCase());}
 
 // LIVE DROPDOWN + STOCK UNIVERSE AUTOCOMPLETE
@@ -2067,8 +2074,11 @@ async function runStockSearch(symbol){
   document.getElementById('stockTabFundamentals').innerHTML=`<div class=\"apex-table-wrap\"><table class=\"apex-table\"><tbody><tr><td>P/E (TTM)</td><td>${B.pe_trailing??'—'}</td><td>P/E (FWD)</td><td>${B.pe_forward??'—'}</td></tr><tr><td>P/B</td><td>${B.pb??'—'}</td><td>P/S</td><td>${B.ps??'—'}</td></tr><tr><td>EV/EBITDA</td><td>${B.ev_ebitda??'—'}</td><td>ROE</td><td>${B.roe!=null?apexPct(B.roe*100):'—'}</td></tr><tr><td>Gross Margin</td><td>${B.gross_margin!=null?apexPct(B.gross_margin*100):'—'}</td><td>Net Margin</td><td>${B.net_margin!=null?apexPct(B.net_margin*100):'—'}</td></tr><tr><td>Revenue TTM</td><td>${apexShortMoney(B.revenue_ttm)}</td><td>Revenue Growth</td><td>${B.revenue_growth!=null?apexPct(B.revenue_growth*100):'—'}</td></tr><tr><td>Debt/Equity</td><td>${B.debt_equity??'—'}</td><td>Dividend Yield</td><td>${B.dividend_yield!=null?apexPct(B.dividend_yield*100):'—'}</td></tr></tbody></table></div>`;
   // Factors tab
   if(E&&E.composite_score!=null){document.getElementById('stockTabFactors').innerHTML=`<div class=\"apex-mini-heading\">Composite Score</div><div class=\"apex-big-number\">${E.composite_score}</div><div class=\"apex-score-segments\" style=\"margin-top:12px\"><div class=\"apex-score-segment\"><div class=\"label\">Value</div><div class=\"num\">${E.value_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.value_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Quality</div><div class=\"num\">${E.quality_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.quality_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Momentum</div><div class=\"num\">${E.momentum_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.momentum_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Growth</div><div class=\"num\">${E.growth_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.growth_score}%\"></span></div></div></div>`;}else{document.getElementById('stockTabFactors').textContent='Factor data unavailable.';}
-  // News tab
-  const news=(data.D||[]).map(n=>`<div class=\"news-item\"><div class=\"news-src\"><span class=\"nsrc\">${n.source||''}</span><span class=\"ntime\">${n.published||''}</span></div><div class=\"news-hl\" onclick=\"window.open('${n.url}','_blank')\" style=\"cursor:pointer;\"><span class=\"news-link\">${n.title}</span></div></div>`).join('')||'<div class=\"apex-note\">No company specific news.</div>';
+  // News tab: company-specific from /api/news?symbol=
+  const newsResp = await apexFetchJSON(`/api/news?symbol=${encodeURIComponent(sym)}`).catch(() => null);
+  const newsList = (newsResp && newsResp.articles) ? newsResp.articles : (data.D || []);
+  const escHtml = (s)=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const news = newsList.length ? newsList.map(n=>{const u=(n.url||'#').replace(/"/g,'&quot;');return`<div class=\"news-item\"><div class=\"news-src\"><span class=\"nsrc\">${escHtml(n.source)}</span><span class=\"ntime\">${n.time_ago||n.published||''}</span></div><div class=\"news-hl\" data-url=\"${u}\" onclick=\"window.open(this.getAttribute('data-url'),'_blank')\" style=\"cursor:pointer;\"><span class=\"news-link\">${escHtml(n.title)}</span></div></div>`;}).join('') : '<div class=\"apex-note\">No company-specific news.</div>';
   document.getElementById('stockTabNews').innerHTML=news;
   // AI tab
   if(data.H&&data.H.summary){document.getElementById('stockTabAi').innerHTML=`<div style=\"font-family:var(--mono);font-size:12px;white-space:pre-wrap;line-height:1.7;\">${data.H.summary}</div><div style=\"margin-top:8px;font-size:9px;color:var(--text3);\">Powered by Groq · generated ${data.H.generated_at}</div>`;}else{document.getElementById('stockTabAi').innerHTML='<div class=\"apex-note\">AI research note not available yet.</div>';}
@@ -2450,8 +2460,37 @@ renderMacroPage = async function() {
     ['Shelter',4.8,'↑',42], ['Energy',1.1,'↓',8], ['Food',2.7,'→',11], ['Core Goods',0.6,'↓',7], ['Core Services ex-Shelter',4.2,'↑',32]
   ];
   document.getElementById('inflationDashboard').innerHTML = `<div style="padding:12px 16px;"><div class="apex-mini-heading">Inflation Decomposition</div>${inflRows.map(r => `<div class="apex-contrib-row"><span>${r[0]}</span><span>${r[1]}%</span><span>${r[2]}</span><div class="apex-mini-bar"><span style="width:${r[3]}%;background:${r[0].includes('Services') ? 'var(--gold)' : 'var(--accent)'}"></span></div></div>`).join('')}<div class="apex-note" style="margin-top:10px">Supercore remains sticky in services ex-shelter, keeping the Fed biased toward patience.</div><div class="apex-table-wrap" style="margin-top:12px;"><table class="apex-table"><thead><tr><th>Breakeven</th><th>Rate</th></tr></thead><tbody><tr><td>2Y</td><td>2.64%</td></tr><tr><td>5Y</td><td>2.42%</td></tr><tr><td>10Y</td><td>2.31%</td></tr></tbody></table></div></div>`;
-  const events = (calendar?.events || []).slice(0, 6);
-  document.getElementById('econIndicators').innerHTML = `<div class="indicator-block">${ECON_INDICATORS.map(e=>`<div class="indicator-item"><div class="l">${e.l}</div><div class="v">${e.v}</div><div class="c ${e.u?'up':'down'}">${e.c}</div></div>`).join('')}</div><div class="apex-mini-heading" style="margin-top:14px;">Economic Calendar Snapshot</div><div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Date</th><th>Event</th><th>Country</th><th>Actual</th><th>Estimate</th><th>Impact</th></tr></thead><tbody>${events.map(ev => `<tr><td>${ev.date || '—'}</td><td>${ev.event || '—'}</td><td>${ev.country || '—'}</td><td>${ev.actual ?? '—'}</td><td>${ev.estimate ?? '—'}</td><td>${String(ev.impact || 'med').toLowerCase() === 'high' ? '<span class="apex-badge red">high</span>' : String(ev.impact || 'med').toLowerCase() === 'low' ? '<span class="apex-badge green">low</span>' : '<span class="apex-badge yellow">medium</span>'}</td></tr>`).join('') || '<tr><td colspan="6">No calendar events available.</td></tr>'}</tbody></table></div>`;
+  const events = (calendar?.events || []).slice(0, 8);
+  const impBadge = (imp) => { const i = (imp || '').toUpperCase(); return i === 'HIGH' ? '<span class="apex-badge red">HIGH</span>' : i === 'MED' ? '<span class="apex-badge yellow">MED</span>' : '<span class="apex-badge yellow">MED</span>'; };
+  const calTable = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Date</th><th>Event</th><th>Country</th><th>Forecast</th><th>Previous</th><th>Importance</th></tr></thead><tbody>${events.map(ev => `<tr><td>${ev.date || '—'}</td><td>${ev.event || '—'}</td><td>${ev.country || '—'}</td><td>${ev.forecast ?? '—'}</td><td>${ev.previous ?? '—'}</td><td>${impBadge(ev.importance)}</td></tr>`).join('') || '<tr><td colspan="6">No calendar events available.</td></tr>'}</tbody></table></div>${calendar?.source === 'scheduled' ? '<div style="margin-top:8px;font-size:10px;color:var(--text3);">Scheduled · Verified 2026-03-13</div>' : ''}`;
+  document.getElementById('econIndicators').innerHTML = `<div class="indicator-block">${ECON_INDICATORS.map(e=>`<div class="indicator-item"><div class="l">${e.l}</div><div class="v">${e.v}</div><div class="c ${e.u?'up':'down'}">${e.c}</div></div>`).join('')}</div><div class="apex-mini-heading" style="margin-top:14px;">Economic Calendar Snapshot</div>${calTable}`;
+  const indicators = await apexFetchJSON('/api/indicators').catch(() => null);
+  const ind = indicators || {};
+  const fmt = (v) => (v == null ? '—' : (typeof v === 'number' && v % 1 !== 0) ? v.toFixed(2) : String(v));
+  const signal = (name, val) => {
+    if (val == null) return { dot: 'var(--text3)', text: '—', impl: '—' };
+    const v = Number(val);
+    if (name === 'GDP') return v > 3 ? { dot: 'var(--green)', text: 'Strong', impl: 'Expansion' } : v >= 1 ? { dot: 'var(--gold)', text: 'Slowing', impl: 'Late cycle' } : { dot: 'var(--red)', text: 'Contraction', impl: 'Risk off' };
+    if (name === 'Unemployment') return v < 4 ? { dot: 'var(--green)', text: 'Tight Labour', impl: 'Wage pressure' } : v <= 5 ? { dot: 'var(--gold)', text: 'Softening', impl: 'Watch' } : { dot: 'var(--red)', text: 'Rising', impl: 'Recession risk' };
+    if (name === 'PMI Mfg' || name === 'PMI Services') return v > 50 ? { dot: 'var(--green)', text: 'Expanding', impl: 'Growth' } : { dot: 'var(--red)', text: 'Contracting', impl: 'Slowdown' };
+    if (name === 'Retail Sales') return v > 0.4 ? { dot: 'var(--green)', text: 'Healthy', impl: 'Consumer strong' } : v >= 0 ? { dot: 'var(--gold)', text: 'Weak', impl: 'Soft' } : { dot: 'var(--red)', text: 'Contracting', impl: 'Weak demand' };
+    if (name === 'Real Rate') return v > 1.5 ? { dot: 'var(--red)', text: 'Restrictive', impl: 'Tight financial conditions' } : v >= 0 ? { dot: 'var(--gold)', text: 'Neutral', impl: 'Balanced' } : { dot: 'var(--green)', text: 'Accommodative', impl: 'Stimulative' };
+    if (name === 'Yield Curve') return v < 0 ? { dot: 'var(--red)', text: 'Inverted', impl: 'Recession signal' } : v < 30 ? { dot: 'var(--gold)', text: 'Flat', impl: 'Caution' } : { dot: 'var(--green)', text: 'Normal', impl: 'Steep' };
+    if (name === 'CPI') return v < 2 ? { dot: 'var(--green)', text: 'On target', impl: 'Fed satisfied' } : v <= 3 ? { dot: 'var(--gold)', text: 'Sticky', impl: 'Higher for longer' } : { dot: 'var(--red)', text: 'Hot', impl: 'Hawkish Fed' };
+    return { dot: 'var(--text3)', text: '—', impl: '—' };
+  };
+  const scorecardRows = [
+    ['GDP', ind.gdp != null ? ind.gdp + '%' : null, 'GDP'],
+    ['Unemployment', ind.unemployment != null ? ind.unemployment + '%' : null, 'Unemployment'],
+    ['PMI Mfg', ind.pmi_mfg, 'PMI Mfg'],
+    ['PMI Services', ind.pmi_services, 'PMI Services'],
+    ['Retail Sales', ind.retail_mom != null ? ind.retail_mom + '%' : null, 'Retail Sales'],
+    ['Real Rate', ind.real_rate != null ? ind.real_rate + '%' : null, 'Real Rate'],
+    ['Yield Curve', ind.yield_curve_2s10s != null ? ind.yield_curve_2s10s + 'bp' : null, 'Yield Curve'],
+    ['CPI', ind.cpi_yoy != null ? ind.cpi_yoy + '%' : null, 'CPI'],
+  ];
+  const scorecardHtml = `<div class="apex-table-wrap" style="padding:0 16px;"><table class="apex-table"><thead><tr><th>Indicator</th><th>Value</th><th>● Signal</th><th>Implication</th></tr></thead><tbody>${scorecardRows.map(([label, val, key]) => { const s = signal(key, key === 'GDP' ? ind.gdp : key === 'Unemployment' ? ind.unemployment : key === 'PMI Mfg' ? ind.pmi_mfg : key === 'PMI Services' ? ind.pmi_services : key === 'Retail Sales' ? ind.retail_mom : key === 'Real Rate' ? ind.real_rate : key === 'Yield Curve' ? ind.yield_curve_2s10s : ind.cpi_yoy); return `<tr><td>${label}</td><td>${fmt(val)}</td><td><span style="color:${s.dot}">●</span> ${s.text}</td><td style="font-size:10px;color:var(--text2)">${s.impl}</td></tr>`; }).join('')}</tbody></table></div><div style="padding:8px 16px;font-size:10px;color:var(--text3);">Updated ${ind.last_updated ? new Date(ind.last_updated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—'}</div>`;
+  document.getElementById('macroScorecard').innerHTML = scorecardHtml;
   const globalRows = [
     ['Fed','5.33%','Held Mar 19','May 7','Hold / late cut','hawkish'], ['ECB','3.75%','-25bp Mar 6','Apr 17','More easing','dovish'],
     ['BOE','5.25%','Held Feb 6','Mar 19','Hold','neutral'], ['BOJ','0.10%','Held Feb 20','Apr 25','Slow hikes','hawkish'],
@@ -2666,6 +2705,15 @@ refreshLiveData = async function() {
       apexFetchJSON('/api/feargreed').catch(() => null),
     ]);
     updateMacroRegimeFromOverview(overview);
+    if (commodities && typeof commodities.gold === 'object' && commodities.gold.price != null && typeof COMD !== 'undefined' && COMD.length >= 4) {
+      const map = [{ key:'gold', i:0 }, { key:'silver', i:1 }, { key:'wti', i:2 }, { key:'brent', i:3 }];
+      map.forEach(({ key, i })=>{
+        const c = commodities[key];
+        if (c && c.price != null) { COMD[i].price = c.price >= 1000 ? '$' + Math.round(c.price).toLocaleString() : '$' + Number(c.price).toFixed(2); COMD[i].chg = c.change_pct || '—'; COMD[i].u = (c.change != null ? c.change >= 0 : (c.change_pct || '').indexOf('+') >= 0) ? 1 : 0; }
+      });
+      const commEl = document.getElementById('commods');
+      if (commEl) commEl.innerHTML = COMD.map(x=>`<div class="com-row" onclick="qs('${x.q}')"><div class="com-icon">${x.icon}</div><div style="flex:1"><div class="com-name" style="color:${x.col}">${x.name}</div><div class="com-unit">${x.unit}</div><div class="com-bar"><div class="com-fill" style="width:${x.w}%;background:linear-gradient(90deg,${x.grad})"></div></div></div><div style="text-align:right"><div class="com-price" style="color:${x.col}">${x.price}</div><div class="${x.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${x.chg}</div><div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${x.range}</div></div></div>`).join('');
+    }
     if (news && news.articles) { window.APEX_NEWS_ARTICLES = news.articles.map(a => ({ title: a.title, url: a.url, source: a.source, time_ago: a.time_ago, category: a.category, hl: a.title })); renderNews(); }
     if (fearGreed != null) apexRenderFearGreed(fearGreed);
     apexRenderVixTerm(await apexFetchCached('vixTerm', null, '/api/vix-term'));

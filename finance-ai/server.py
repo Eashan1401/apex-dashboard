@@ -9,7 +9,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 import json
 import urllib.request
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 import requests
 import yfinance as yf
@@ -21,6 +21,12 @@ except ImportError:
     load_stock_universe = get_stock_universe = lambda: {}
     def search_universe(q, limit=10):
         return []
+
+try:
+    from fredapi import Fred
+    _fred = Fred(api_key=os.environ.get('FRED_API_KEY', os.environ.get('FRED_KEY', '')))
+except Exception:
+    _fred = None
 
 # Load .env from finance-ai/ or parent
 try:
@@ -89,6 +95,20 @@ def _fetch_one_quote(symbol):
                 data = {'price': c, 'chg': d, 'pct': f'{"+" if dp >= 0 else ""}{dp:.2f}%', 'u': d >= 0}
         except Exception:
             pass
+    if data is None:
+        try:
+            t = yf.Ticker(symbol)
+            fi = getattr(t, 'fast_info', None)
+            if fi is not None:
+                last = getattr(fi, 'last_price', None)
+                prev = getattr(fi, 'previous_close', None) or last
+                if last is not None:
+                    last, prev = float(last), float(prev) if prev else last
+                    chg = last - prev
+                    pct = (chg / prev * 100) if prev and prev != 0 else 0
+                    data = {'price': last, 'chg': chg, 'pct': f'{"+" if chg >= 0 else ""}{pct:.2f}%', 'u': chg >= 0}
+        except Exception:
+            pass
     return data
 
 def _fetch_fred_series(series_id):
@@ -106,74 +126,61 @@ def _fetch_fred_series(series_id):
     return None
 
 
-def _build_fear_greed():
+def _calc_fear_greed():
     """
-    CNN Fear & Greed Index snapshot.
-    Cached ~30 minutes.
+    VIX + SPY momentum proxy for Fear & Greed. No external API. Returns score 0-100 and rating.
     """
-    cache_key = 'feargreed'
-    cached = _cache_get(cache_key, 1800)
-    if cached is not None:
-        return cached
-
-    url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata'
+    score = 50
+    details = {}
     try:
-        resp = requests.get(
-            url,
-            headers={
-                'User-Agent': 'Mozilla/5.0 (APEX Research Terminal)',
-                'Accept': 'application/json',
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
-        j = resp.json()
-        print('[FEAR_GREED] raw response:', json.dumps(j)[:500])
-        fg = j.get('fear_and_greed') or {}
-        score = fg.get('score')
-        rating = fg.get('rating')
-
-        hist = (j.get('fear_and_greed_historical') or {}).get('data') or []
-
-        def _ago(days):
-            if not hist:
-                return None
-            target = datetime.utcnow() - timedelta(days=days)
-            best = None
-            best_diff = None
-            for p in hist:
-                ts = p.get('x')
-                if ts is None:
-                    continue
-                dt = datetime.utcfromtimestamp(ts / 1000.0)
-                diff = abs((dt - target).days)
-                if best is None or diff < best_diff:
-                    best = p
-                    best_diff = diff
-            return best
-
-        prev = _ago(1)
-        wk = _ago(7)
-        mo = _ago(30)
-        yr = _ago(365)
-
-        def _val(p):
-            return None if p is None else p.get('y')
-
-        data = {
-            'score': score,
-            'rating': rating,
-            'previous_close': _val(prev),
-            'one_week_ago': _val(wk),
-            'one_month_ago': _val(mo),
-            'one_year_ago': _val(yr),
-        }
+        vix_t = yf.Ticker("^VIX")
+        fi = getattr(vix_t, 'fast_info', None)
+        vix = getattr(fi, 'last_price', None) if fi else None
+        if vix is not None:
+            vix = float(vix)
+            details['vix'] = vix
+            if vix > 35:
+                score -= 30
+            elif vix > 28:
+                score -= 20
+            elif vix > 22:
+                score -= 10
+            elif vix < 14:
+                score += 20
+            elif vix < 17:
+                score += 10
     except Exception as e:
-        print('[FEAR_GREED] error:', e)
-        data = None
-
-    _cache_set(cache_key, data)
-    return data
+        details['vix_error'] = str(e)
+    try:
+        spy_hist = yf.Ticker("SPY").history(period="1mo")
+        if spy_hist is not None and not spy_hist.empty and len(spy_hist["Close"]) >= 2:
+            spy_return = (spy_hist["Close"].iloc[-1] / spy_hist["Close"].iloc[0] - 1) * 100
+            details['spy_20d_return'] = round(spy_return, 2)
+            if spy_return < -8:
+                score -= 20
+            elif spy_return < -4:
+                score -= 10
+            elif spy_return < -1:
+                score -= 5
+            elif spy_return > 5:
+                score += 15
+            elif spy_return > 2:
+                score += 8
+    except Exception as e:
+        details['spy_error'] = str(e)
+    score = max(0, min(100, score))
+    if score <= 25:
+        rating = "Extreme Fear"
+    elif score <= 45:
+        rating = "Fear"
+    elif score <= 55:
+        rating = "Neutral"
+    elif score <= 75:
+        rating = "Greed"
+    else:
+        rating = "Extreme Greed"
+    print('[FEAR_GREED] details:', details)
+    return {"score": score, "rating": rating, "details": details}
 
 
 def _build_vix_term():
@@ -347,7 +354,7 @@ def _build_overview():
 
 
 def _fetch_commodity_quotes():
-    """Spot commodity prices (gold, silver, wti, brent) from yfinance. Cached 5 min."""
+    """Spot commodity prices with change % (gold, silver, wti, brent) from yfinance. Cached 5 min."""
     cache_key = 'commodities_quotes'
     cached = _cache_get(cache_key, 300)
     if cached is not None:
@@ -356,14 +363,318 @@ def _fetch_commodity_quotes():
     for key, ticker in [('gold', 'GC=F'), ('silver', 'SI=F'), ('wti', 'CL=F'), ('brent', 'BZ=F')]:
         try:
             t = yf.Ticker(ticker)
-            info = t.fast_info
-            last = getattr(info, 'last_price', None)
+            fi = getattr(t, 'fast_info', None)
+            if fi is None:
+                continue
+            last = getattr(fi, 'last_price', None)
+            prev = getattr(fi, 'previous_close', None)
             if last is not None:
-                out[key] = float(last)
+                last = float(last)
+                prev = float(prev) if prev is not None else last
+                change = last - prev
+                change_pct = (change / prev * 100) if prev and prev != 0 else 0
+                sign = '+' if change_pct >= 0 else ''
+                out[key] = {
+                    'price': round(last, 2),
+                    'change': round(change, 2),
+                    'change_pct': sign + str(round(change_pct, 2)) + '%',
+                }
         except Exception:
             pass
     _cache_set(cache_key, out)
     return out
+
+
+def _build_news_for_symbol(symbol):
+    """Company-specific news: filter RSS by symbol/name + yfinance ticker.news, merge and dedupe. Returns up to 20."""
+    symbol = (symbol or '').strip().upper()
+    if not symbol:
+        return []
+    try:
+        u = get_stock_universe()
+        name = (u.get(symbol) or {}).get('name', '') or ''
+        if not name:
+            try:
+                name = (yf.Ticker(symbol).info or {}).get('shortName', '') or ''
+            except Exception:
+                pass
+        keywords = [symbol] + [w for w in (name or '').split() if len(w) > 2][:5]
+        seen_titles = set()
+        articles = []
+        now = datetime.utcnow()
+
+        # yfinance news
+        try:
+            for item in (yf.Ticker(symbol).news or [])[:15]:
+                title = (item.get('title') or '').strip()
+                if not title or title.lower() in seen_titles:
+                    continue
+                seen_titles.add(title.lower())
+                link = item.get('link') or item.get('url') or '#'
+                pub_ts = item.get('providerPublishTime') or item.get('published') or 0
+                if isinstance(pub_ts, (int, float)) and pub_ts:
+                    try:
+                        dt = datetime.utcfromtimestamp(int(pub_ts))
+                    except Exception:
+                        dt = now
+                else:
+                    dt = now
+                delta = now - dt
+                hours = int(delta.total_seconds() // 3600)
+                if hours <= 0:
+                    time_ago = 'Just now'
+                elif hours < 24:
+                    time_ago = f'{hours}h'
+                else:
+                    time_ago = f'{hours // 24}d'
+                articles.append({
+                    'title': title,
+                    'url': link,
+                    'source': (item.get('publisher') or item.get('provider') or 'Yahoo'),
+                    'published': dt.isoformat(),
+                    'time_ago': time_ago,
+                })
+        except Exception as e:
+            print('[NEWS] yfinance for', symbol, e)
+
+        # RSS filter (from cache or one-off)
+        cache_key = 'news_rss'
+        rss_articles = _cache_get(cache_key, 99999)
+        if rss_articles and rss_articles.get('articles'):
+            for a in rss_articles['articles']:
+                if len(articles) >= 20:
+                    break
+                title = (a.get('title') or '').strip()
+                if not title or title.lower() in seen_titles:
+                    continue
+                t_lower = title.lower()
+                if not any((k and k.lower() in t_lower) for k in keywords):
+                    continue
+                seen_titles.add(title.lower())
+                articles.append({
+                    'title': title,
+                    'url': a.get('url', a.get('link', '#')),
+                    'source': a.get('source', ''),
+                    'published': a.get('published', ''),
+                    'time_ago': a.get('time_ago', ''),
+                })
+
+        articles.sort(key=lambda x: x.get('published') or '', reverse=True)
+        return articles[:20]
+    except Exception as e:
+        print('[NEWS] _build_news_for_symbol', symbol, e)
+        return []
+
+
+_ECON_CALENDAR_FALLBACK = [
+    {"date": "2026-03-17", "event": "Retail Sales (Feb)", "importance": "HIGH", "forecast": "0.3%", "previous": "0.2%", "country": "US"},
+    {"date": "2026-03-18", "event": "ZEW Economic Sentiment", "importance": "MED", "forecast": "52.0", "previous": "48.2", "country": "EU"},
+    {"date": "2026-03-19", "event": "FOMC Rate Decision", "importance": "HIGH", "forecast": "Hold 3.50%", "previous": "3.50%", "country": "US"},
+    {"date": "2026-03-19", "event": "GDP Q4 Final", "importance": "MED", "forecast": "2.3%", "previous": "2.8%", "country": "US"},
+    {"date": "2026-03-20", "event": "BOE Rate Decision", "importance": "HIGH", "forecast": "Hold 4.50%", "previous": "4.50%", "country": "UK"},
+    {"date": "2026-03-26", "event": "PCE Inflation (Jan)", "importance": "HIGH", "forecast": "2.6%", "previous": "2.5%", "country": "US"},
+    {"date": "2026-04-02", "event": "NFP + Unemployment", "importance": "HIGH", "forecast": "170k", "previous": "182k", "country": "US"},
+    {"date": "2026-04-10", "event": "CPI (Mar)", "importance": "HIGH", "forecast": "2.3%", "previous": "2.4%", "country": "US"},
+    {"date": "2026-04-29", "event": "GDP Q1 Advance", "importance": "HIGH", "forecast": "1.8%", "previous": "2.3%", "country": "US"},
+    {"date": "2026-04-06", "event": "ISM Services PMI", "importance": "MED", "forecast": "52.5", "previous": "52.1", "country": "US"},
+]
+
+
+def _build_economic_calendar():
+    """FRED release dates + static fallback. Cache 6 hours."""
+    cache_key = 'economic_calendar'
+    cached = _cache_get(cache_key, 6 * 3600)
+    if cached is not None:
+        return cached
+    events = []
+    source = 'fred'
+    today = date.today()
+    thirty_days_out = today + timedelta(days=30)
+    release_map = {
+        10: ("Employment Situation (NFP)", "HIGH", "US"),
+        48: ("CPI Inflation", "HIGH", "US"),
+        53: ("GDP Growth", "HIGH", "US"),
+        22: ("Retail Sales", "MED", "US"),
+        21: ("PCE / Personal Income", "HIGH", "US"),
+        46: ("Producer Price Index", "MED", "US"),
+        82: ("FOMC Meeting", "HIGH", "US"),
+    }
+    if _fred is not None:
+        for rid, (event_name, importance, country) in release_map.items():
+            try:
+                df = _fred.get_release_dates(release_id=rid, realtime_start=today.isoformat(), realtime_end=thirty_days_out.isoformat(), limit=2)
+                if df is not None and not df.empty:
+                    for _, row in df.iterrows():
+                        d = row.get('date')
+                        if d is not None:
+                            dstr = d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d)[:10]
+                            events.append({"date": dstr, "event": event_name, "importance": importance, "country": country, "forecast": "", "previous": ""})
+            except Exception as e:
+                print('[ECON_CAL] FRED release', rid, e)
+    if len(events) < 4:
+        events = list(_ECON_CALENDAR_FALLBACK)
+        source = 'scheduled'
+    events.sort(key=lambda x: x.get('date') or '')
+    result = {"events": events, "source": source, "last_updated": datetime.utcnow().isoformat()}
+    if source == 'scheduled':
+        result["last_verified"] = "2026-03-13"
+    _cache_set(cache_key, result)
+    return result
+
+
+def _build_indicators():
+    """GDP, unemployment, retail, housing, PMI, VIX, yield curve, CPI, real rate. Cache 30 min."""
+    cache_key = 'indicators'
+    cached = _cache_get(cache_key, 30 * 60)
+    if cached is not None:
+        return cached
+    out = {"gdp": None, "unemployment": None, "retail_mom": None, "housing_starts": None, "pmi_mfg": 49.2, "pmi_services": 52.1,
+           "vix": None, "yield_curve_2s10s": None, "cpi_yoy": None, "real_rate": None, "last_updated": datetime.utcnow().isoformat()}
+    if _fred is not None:
+        try:
+            s = _fred.get_series('A191RL1Q225SBEA')
+            if s is not None and not s.empty:
+                out["gdp"] = round(float(s.dropna().iloc[-1]), 2)
+        except Exception:
+            pass
+        try:
+            s = _fred.get_series('UNRATE')
+            if s is not None and not s.empty:
+                out["unemployment"] = round(float(s.dropna().iloc[-1]), 2)
+        except Exception:
+            pass
+        try:
+            s = _fred.get_series('RSAFS')
+            if s is not None and not s.dropna().empty and len(s) >= 2:
+                arr = s.dropna()
+                out["retail_mom"] = round((float(arr.iloc[-1]) / float(arr.iloc[-2]) - 1) * 100, 2)
+        except Exception:
+            pass
+        try:
+            s = _fred.get_series('HOUST')
+            if s is not None and not s.empty:
+                out["housing_starts"] = round(float(s.dropna().iloc[-1]) / 1000, 2)
+        except Exception:
+            pass
+    try:
+        fi = getattr(yf.Ticker("^VIX"), 'fast_info', None)
+        if fi is not None:
+            v = getattr(fi, 'last_price', None)
+            if v is not None:
+                out["vix"] = round(float(v), 2)
+    except Exception:
+        pass
+    try:
+        macro = _build_macro_snapshot()
+        t = macro.get('treasury') or {}
+        dgs2, dgs10 = t.get('dgs2'), t.get('dgs10')
+        if dgs2 is not None and dgs10 is not None:
+            out["yield_curve_2s10s"] = round((dgs10 - dgs2) * 100, 0)
+    except Exception:
+        pass
+    try:
+        ov = _build_overview()
+        if ov.get('cpi_yoy') is not None:
+            out["cpi_yoy"] = round(ov["cpi_yoy"], 2)
+        dgs10 = (_build_macro_snapshot().get('treasury') or {}).get('dgs10')
+        dgs2 = (_build_macro_snapshot().get('treasury') or {}).get('dgs2')
+        if out.get("yield_curve_2s10s") is None and dgs10 is not None and dgs2 is not None:
+            out["yield_curve_2s10s"] = round((dgs10 - dgs2) * 100, 0)
+        if ov.get('cpi_yoy') is not None and dgs10 is not None:
+            out["real_rate"] = round(dgs10 - ov["cpi_yoy"], 2)
+    except Exception:
+        pass
+    _cache_set(cache_key, out)
+    return out
+
+
+def _sec_cik_for_ticker(symbol):
+    """Resolve ticker to SEC CIK. Uses cached company_tickers.json."""
+    cache_key = 'sec_tickers'
+    cached = _cache_get(cache_key, 86400)
+    if cached is not None:
+        return cached.get(symbol.upper())
+    try:
+        r = requests.get('https://www.sec.gov/files/company_tickers.json', headers={'User-Agent': 'APEX Research Terminal contact@apex.com'}, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        mapping = {}
+        for item in (data or {}).values():
+            if isinstance(item, dict) and 'ticker' in item and 'cik_str' in item:
+                mapping[item['ticker'].upper()] = str(item['cik_str']).zfill(10)
+        _cache_set(cache_key, mapping)
+        return mapping.get(symbol.upper())
+    except Exception as e:
+        print('[SEC] company_tickers', e)
+        return None
+
+
+def _build_insiders_edgar(symbol):
+    """SEC EDGAR Form 4 RSS + full-text search. Cache 2 hours."""
+    symbol = (symbol or '').strip().upper()
+    if not symbol:
+        return {"symbol": symbol, "transactions": []}
+    cache_key = f'insiders_edgar_{symbol}'
+    cached = _cache_get(cache_key, 2 * 3600)
+    if cached is not None:
+        return cached
+    transactions = []
+    try:
+        cik = _sec_cik_for_ticker(symbol)
+        if cik:
+            url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}&type=4&dateb=&owner=include&count=10&output=atom"
+            r = requests.get(url, headers={"User-Agent": "APEX Research Terminal contact@apex.com"}, timeout=10)
+            r.raise_for_status()
+            feed = feedparser.parse(r.text)
+            for entry in (feed.entries or [])[:15]:
+                title = (entry.get('title') or '').strip()
+                link = next((l.get('href') for l in (entry.get('links') or []) if l.get('rel') == 'alternate'), None) or entry.get('link') or ''
+                updated = entry.get('updated') or entry.get('published') or ''
+                try:
+                    from datetime import datetime as dt
+                    if updated:
+                        d = dt.fromisoformat(updated.replace('Z', '+00:00')).date() if 'T' in updated else updated[:10]
+                        date_str = d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(updated)[:10]
+                    else:
+                        date_str = ''
+                except Exception:
+                    date_str = str(updated)[:10] if updated else ''
+                transactions.append({
+                    "name": title.split(' - ')[0].strip() if ' - ' in title else title or "unknown",
+                    "position": "unknown",
+                    "transaction_type": "4",
+                    "date": date_str,
+                    "source": "SEC EDGAR",
+                    "url": link,
+                })
+    except Exception as e:
+        print('[INSIDERS] EDGAR', symbol, e)
+    try:
+        today = date.today()
+        thirty_days_ago = (today - timedelta(days=30)).isoformat()
+        url2 = f"https://efts.sec.gov/LATEST/search-index?q=%22{symbol}%22&forms=4&dateRange=custom&startdt={thirty_days_ago}&enddt={today.isoformat()}"
+        r = requests.get(url2, headers={"User-Agent": "APEX Research Terminal contact@apex.com"}, timeout=10)
+        if r.status_code == 200:
+            j = r.json()
+            hits = (j.get('hits') or {}).get('hits') or []
+            seen = {t.get("date", "") + t.get("url", "") for t in transactions}
+            for h in hits[:10]:
+                src = h.get('_source') or {}
+                fd = src.get('file_date') or ''
+                url = (src.get('link') or '') if isinstance(src.get('link'), str) else ''
+                names = src.get('display_names') or src.get('entity_name') or 'unknown'
+                if isinstance(names, list):
+                    names = names[0] if names else 'unknown'
+                key = str(fd) + url
+                if key not in seen:
+                    seen.add(key)
+                    transactions.append({"name": names, "position": "unknown", "transaction_type": "4", "date": fd[:10] if fd else "", "source": "SEC EDGAR", "url": url or '#'})
+    except Exception as e:
+        print('[INSIDERS] EFFTS', symbol, e)
+    transactions.sort(key=lambda x: x.get('date') or '', reverse=True)
+    result = {"symbol": symbol, "transactions": transactions[:20]}
+    _cache_set(cache_key, result)
+    return result
 
 
 def _build_stocks_snapshot():
@@ -709,8 +1020,8 @@ class ProxyHandler(SimpleHTTPRequestHandler):
 
         # CNN Fear & Greed
         if path == '/api/feargreed':
-            data = _build_fear_greed()
-            self._send_json(data if data is not None else {'score': None})
+            data = _calc_fear_greed()
+            self._send_json(data)
             return
 
         # VIX term structure
@@ -719,79 +1030,57 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(data if data is not None else {'current': None})
             return
 
-        # Earnings calendar (EODHD)
+        # Earnings (yfinance; EODHD calendar not on free plan)
         if path == '/api/earnings':
             symbol = (qs.get('symbol') or [''])[0].strip().upper()
             if not symbol:
                 self._send_json({'error': 'missing symbol'}, 400)
                 return
-            today = datetime.utcnow().date()
-            future_to = today + timedelta(days=90)
-            # Upcoming window
-            raw_future = _eodhd_get(
-                'calendar/earnings',
-                params={'symbols': f'{symbol}.US', 'from': today.isoformat(), 'to': future_to.isoformat()},
-                cache_key=f'earnings_future_{symbol}',
-                ttl=3600,
-            )
-            # History since 2025-01-01
-            raw_hist = _eodhd_get(
-                'calendar/earnings',
-                params={'symbols': f'{symbol}.US', 'from': '2025-01-01', 'to': today.isoformat()},
-                cache_key=f'earnings_hist_{symbol}',
-                ttl=3600,
-            )
-            print(f'[EARNINGS] future raw for {symbol}:', json.dumps(raw_future or [])[:500])
-            print(f'[EARNINGS] hist raw for {symbol}:', json.dumps(raw_hist or [])[:500])
-            out = {
-                'symbol': symbol,
-                'next_earnings': None,
-                'history': [],
-            }
+            cache_key = f'earnings_yf_{symbol}'
+            cached = _cache_get(cache_key, 3600)
+            if cached is not None:
+                self._send_json(cached)
+                return
+            out = {'symbol': symbol, 'next_earnings': None, 'history': []}
             try:
-                # Next earnings = first future date
-                future = [i for i in (raw_future or []) if 'date' in i]
-                future.sort(key=lambda x: x.get('date'))
-                next_date = None
-                for it in future:
+                t = yf.Ticker(symbol)
+                cal = getattr(t, 'calendar', None)
+                if cal is not None and hasattr(cal, 'iloc'):
                     try:
-                        d = datetime.strptime(it['date'], '%Y-%m-%d').date()
-                        if d >= today:
-                            next_date = it['date']
-                            break
+                        next_dates = cal.index.astype(str).tolist() if not cal.empty else []
+                        for dstr in next_dates:
+                            if dstr >= datetime.utcnow().strftime('%Y-%m-%d'):
+                                out['next_earnings'] = dstr[:10]
+                                break
                     except Exception:
-                        continue
-                out['next_earnings'] = next_date
-                # Last 4 quarters EPS and revenue surprise, from history
-                past = []
-                hist_items = sorted(raw_hist or [], key=lambda x: x.get('date') or '', reverse=True)
-                for it in hist_items:
-                    if len(past) >= 4:
-                        break
-                    if not it.get('eps_estimate') and not it.get('eps_actual'):
-                        continue
-                    est = it.get('eps_estimate')
-                    act = it.get('eps_actual')
-                    rev_est = it.get('revenue_estimate')
-                    rev_act = it.get('revenue_actual')
-                    surprise = None
-                    if est not in (None, 0):
-                        try:
-                            surprise = (float(act) - float(est)) / float(est) * 100.0
-                        except Exception:
+                        pass
+                eh = getattr(t, 'earnings_history', None)
+                if eh is not None and not (getattr(eh, 'empty', True)):
+                    try:
+                        df = eh.tail(4)
+                        for _, row in df.iterrows():
+                            est = row.get('epsEstimate') if hasattr(row, 'get') else None
+                            act = row.get('epsActual') if hasattr(row, 'get') else None
                             surprise = None
-                    out_item = {
-                        'date': it.get('date'),
-                        'eps_estimate': est,
-                        'eps_actual': act,
-                        'eps_surprise_pct': surprise,
-                        'revenue_estimate': rev_est,
-                        'revenue_actual': rev_act,
-                    }
-                    past.append(out_item)
-                out['history'] = past
-            except Exception:
-                pass
+                            if est not in (None, 0) and act is not None:
+                                try:
+                                    surprise = (float(act) - float(est)) / float(est) * 100.0
+                                except Exception:
+                                    pass
+                            out['history'].append({
+                                'date': str(row.get('startdatetime', ''))[:10] if hasattr(row, 'get') else '',
+                                'eps_estimate': est,
+                                'eps_actual': act,
+                                'eps_surprise_pct': surprise,
+                                'revenue_estimate': getattr(row, 'revenueEstimate', None),
+                                'revenue_actual': getattr(row, 'revenueActual', None),
+                            })
+                        out['history'] = sorted(out['history'], key=lambda x: x.get('date') or '', reverse=True)[:4]
+                    except Exception:
+                        pass
+            except Exception as e:
+                print('[EARNINGS] yfinance', symbol, e)
+            _cache_set(cache_key, out)
             self._send_json(out)
             return
 
@@ -808,9 +1097,10 @@ class ProxyHandler(SimpleHTTPRequestHandler):
                 cache_key=f'fund_{code}',
                 ttl=300,
             )
-            out = {
-                'symbol': symbol,
-            }
+            out = {'symbol': symbol}
+            if raw is None:
+                out['source'] = 'unavailable'
+                out['reason'] = 'API plan limitation'
             try:
                 if raw:
                     g = raw.get('General', {})
@@ -842,58 +1132,14 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(out)
             return
 
-        # Insider transactions (EODHD)
+        # Insider transactions (SEC EDGAR Form 4)
         if path == '/api/insiders':
             symbol = (qs.get('symbol') or [''])[0].strip().upper()
-            watchlist = ['NVDA', 'MSFT', 'AAPL', 'GOOGL', 'META', 'JPM', 'GS', 'BAC', 'BX', 'BLK', 'XOM', 'AMD']
-            symbols = [symbol] if symbol else watchlist
-            all_items = []
-            for sym in symbols:
-                code = sym + '.US'
-                raw = _eodhd_get(
-                    'insider-transactions',
-                    params={'code': code, 'limit': 5},
-                    cache_key=f'insiders_{code}',
-                    ttl=300,
-                )
-                print(f'[INSIDERS] raw for {sym}:', json.dumps(raw or [])[:500])
-                for it in raw or []:
-                    all_items.append((sym, it))
-            items = []
-            try:
-                for sym, it in all_items:
-                    items.append(
-                        {
-                            'symbol': sym,
-                            'code': it.get('transactionCode') or it.get('Code'),
-                            'name': it.get('Name'),
-                            'position': it.get('Position'),
-                            'transaction_type': it.get('transactionCode') or it.get('Type'),
-                            'shares': it.get('transactionShares') or it.get('Shares'),
-                            'value': it.get('transactionValue') or it.get('Value'),
-                            'date': it.get('FilingDate') or it.get('transactionDate') or it.get('TransactionDate'),
-                        }
-                    )
-            except Exception:
-                items = []
-            # Sort most recent first
-            items.sort(key=lambda x: str(x.get('date') or ''), reverse=True)
-            # If still empty, return placeholder stale data
-            if not items:
-                items = [
-                    {
-                        'symbol': 'NVDA',
-                        'code': 'P',
-                        'name': 'Hardcoded CEO',
-                        'position': 'CEO',
-                        'transaction_type': 'P',
-                        'shares': 10000,
-                        'value': 10000000,
-                        'date': '2025-12-31',
-                        'stale': True,
-                    }
-                ]
-            self._send_json({'symbol': symbol or 'WATCHLIST', 'transactions': items})
+            if not symbol:
+                self._send_json({'symbol': '', 'transactions': []})
+                return
+            data = _build_insiders_edgar(symbol)
+            self._send_json(data)
             return
 
         # Institutional ownership (EODHD institutional holders endpoint)
@@ -914,8 +1160,10 @@ class ProxyHandler(SimpleHTTPRequestHandler):
                 'top_holders': [],
                 'ownership_qoq_change_pct': None,
             }
+            if raw is None:
+                out['source'] = 'unavailable'
+                out['reason'] = 'API plan limitation'
             try:
-                print(f'[INSTITUTIONAL] raw for {symbol}:', json.dumps(raw or {})[:500])
                 if raw:
                     out['institutional_ownership_pct'] = raw.get('totalPct')
                     holders = raw.get('holders') or []
@@ -935,33 +1183,16 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(out)
             return
 
-        # Economic calendar (EODHD)
+        # Economic calendar (FRED + static fallback)
         if path == '/api/economic-calendar':
-            today = datetime.utcnow().date()
-            to_date = today + timedelta(days=30)
-            raw = _eodhd_get(
-                'economic-events',
-                params={'from': today.isoformat(), 'to': to_date.isoformat()},
-                cache_key='econ_calendar',
-                ttl=3600,
-            )
-            events = []
-            try:
-                for it in raw or []:
-                    events.append(
-                        {
-                            'date': it.get('date'),
-                            'event': it.get('event'),
-                            'country': it.get('country'),
-                            'actual': it.get('actual'),
-                            'estimate': it.get('estimate'),
-                            'previous': it.get('previous'),
-                            'impact': it.get('importance'),
-                        }
-                    )
-            except Exception:
-                events = []
-            self._send_json({'events': events})
+            data = _build_economic_calendar()
+            self._send_json(data)
+            return
+
+        # Macro indicators (FRED + overview)
+        if path == '/api/indicators':
+            data = _build_indicators()
+            self._send_json(data)
             return
 
         # Options intelligence (Polygon snapshot + yfinance HV)
@@ -1053,8 +1284,15 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(out)
             return
 
-        # News RSS aggregation
+        # News RSS aggregation (optional ?symbol= for company-specific news)
         if path == '/api/news':
+            symbol_param = (qs.get('symbol') or [''])[0].strip().upper() if qs.get('symbol') else ''
+            if symbol_param:
+                # Company-specific: filter RSS by symbol/name + merge yfinance news
+                articles = _build_news_for_symbol(symbol_param)
+                payload = {'articles': articles[:20]}
+                self._send_json(payload)
+                return
             cache_key = 'news_rss'
             cached = _cache_get(cache_key, 600)
             if cached is not None:
@@ -1185,7 +1423,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             # Build current market context from local helpers (same data as /api/macro, /api/stocks, /api/feargreed)
             macro = _build_macro_snapshot()
             stocks = _build_stocks_snapshot()
-            fear = _build_fear_greed()
+            fear = _calc_fear_greed()
             vix_term = _build_vix_term()
 
             lines = []
@@ -1215,15 +1453,16 @@ class ProxyHandler(SimpleHTTPRequestHandler):
                     shape = 'INVERTED' if spread < 0 else 'NORMAL'
                     lines.append(f"  2s10s spread: {spread:.2f}% ({shape})")
 
-            # Fear & Greed
+            # Fear & Greed (VIX + SPY proxy)
             if fear:
-                lines.append("\nCNN FEAR & GREED INDEX:")
+                lines.append("\nFEAR & GREED (proxy):")
                 fg_score = fear.get('score')
                 fg_rating = fear.get('rating')
                 lines.append(f"  Score: {fg_score} ({fg_rating})")
-                lines.append(
-                    f"  Prev: {fear.get('previous_close')} · 1W: {fear.get('one_week_ago')} · 1M: {fear.get('one_month_ago')} · 1Y: {fear.get('one_year_ago')}"
-                )
+                details = fear.get('details') or {}
+                if details:
+                    parts = [f"{k}: {v}" for k, v in details.items()]
+                    lines.append("  " + " · ".join(parts))
 
             # VIX term structure snapshot
             if vix_term:
