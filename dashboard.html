@@ -658,13 +658,13 @@
   <!-- MACRO OVERVIEW -->
   <div class="card" style="grid-column:1/4;padding:0;">
     <div class="card-header"><span class="card-title">Macro Regime Monitor</span><span class="card-badge">US · EU · GLOBAL</span></div>
-    <div class="macro-stats">
-      <div class="ms"><div class="ms-label">Fed Funds</div><div class="ms-value up">5.33%</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--text2)"> Held Mar '26</span></div><div class="ms-sub">Next: May 7</div></div>
-      <div class="ms"><div class="ms-label">2Y/10Y Spread</div><div class="ms-value down">-0.18%</div><div class="ms-change"><span class="down">▼</span><span style="color:var(--red)"> INVERTED</span></div><div class="ms-sub">Recession signal</div></div>
-      <div class="ms"><div class="ms-label">CPI YoY</div><div class="ms-value" style="color:var(--gold)">3.1%</div><div class="ms-change"><span class="down">▼</span><span style="color:var(--text2)"> From 3.4%</span></div><div class="ms-sub">Above 2% target</div></div>
-      <div class="ms"><div class="ms-label">WTI Crude</div><div class="ms-value" style="color:var(--oil)">$84.20</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--oil)"> +2.8% Iran</span></div><div class="ms-sub">Geo premium</div></div>
-      <div class="ms"><div class="ms-label">Gold Spot</div><div class="ms-value" style="color:var(--gold)">$2,924</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--gold)"> +1.2%</span></div><div class="ms-sub">Near ATH</div></div>
-      <div class="ms"><div class="ms-label">VIX</div><div class="ms-value" style="color:var(--gold)">18.4</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--gold)"> Elevated</span></div><div class="ms-sub">Watch >20</div></div>
+    <div class="macro-stats" id="macroRegimeStats">
+      <div class="ms" id="macroMsFedFunds"><div class="ms-label">Fed Funds</div><div class="ms-value up">5.33%</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--text2)"> Held Mar '26</span></div><div class="ms-sub">Next: May 7</div></div>
+      <div class="ms" id="macroMsSpread"><div class="ms-label">2Y/10Y Spread</div><div class="ms-value down">-0.18%</div><div class="ms-change"><span class="down">▼</span><span style="color:var(--red)"> INVERTED</span></div><div class="ms-sub">Recession signal</div></div>
+      <div class="ms" id="macroMsCpi"><div class="ms-label">CPI YoY</div><div class="ms-value" style="color:var(--gold)">3.1%</div><div class="ms-change"><span class="down">▼</span><span style="color:var(--text2)"> From 3.4%</span></div><div class="ms-sub">Above 2% target</div></div>
+      <div class="ms" id="macroMsWti"><div class="ms-label">WTI Crude</div><div class="ms-value" style="color:var(--oil)">$84.20</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--oil)"> +2.8% Iran</span></div><div class="ms-sub">Geo premium</div></div>
+      <div class="ms" id="macroMsGold"><div class="ms-label">Gold Spot</div><div class="ms-value" style="color:var(--gold)">$2,924</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--gold)"> +1.2%</span></div><div class="ms-sub">Near ATH</div></div>
+      <div class="ms" id="macroMsVix"><div class="ms-label">VIX</div><div class="ms-value" style="color:var(--gold)">18.4</div><div class="ms-change"><span class="up">▲</span><span style="color:var(--gold)"> Elevated</span></div><div class="ms-sub">Watch >20</div></div>
     </div>
   </div>
 
@@ -802,6 +802,12 @@
       <div class="sec-item"><span class="sec-name">Gold / Metals</span><span class="sec-pct">9%</span><div class="sec-bar"><div class="sec-fill" style="width:9%;background:var(--gold);"></div></div></div>
       <div class="sec-item"><span class="sec-name">Real Estate</span><span class="sec-pct">5%</span><div class="sec-bar"><div class="sec-fill" style="width:5%;background:#ff6b9d;"></div></div></div>
     </div>
+  </div>
+
+  <!-- PORTFOLIO SNAPSHOT -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Portfolio Snapshot</span><span class="card-badge">CONVICTION BOARD · LATE CYCLE</span></div>
+    <div id="portfolioSnapshot"></div>
   </div>
 
 </div>
@@ -2160,6 +2166,30 @@ function apexRenderOverviewInsider() {
       <div><span>Watch:</span> CEO/CFO buys in banks and energy for stronger signal quality</div>
     </div>`;
 }
+function apexRenderPortfolioSnapshot() {
+  const el = document.getElementById('portfolioSnapshot');
+  if (!el || typeof SIGNALS_FULL === 'undefined') return;
+  const total = SIGNALS_FULL.length || 0;
+  const tickers = SIGNALS_FULL.map(s => s.t);
+  const scores = tickers.map(t => (APEX_STOCK_SCORES[t] || {}).total).filter(v => v != null);
+  const avgScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+  const beta = total ? SIGNALS_FULL.reduce((sum, s) => {
+    const row = US_STOCKS_FULL.find(x => x.t === s.t);
+    const b = row && row.beta != null ? parseFloat(row.beta) : (s.t === 'GLD' ? 0.18 : 1.00);
+    return sum + (isNaN(b) ? 1.0 : b);
+  }, 0) / total : null;
+  const best = SIGNALS_FULL.reduce((b, s) => (b == null || s.ret > b.ret ? s : b), null);
+  const worst = SIGNALS_FULL.reduce((w, s) => (w == null || s.ret < w.ret ? s : w), null);
+  const fmtPerf = s => s ? `${s.t} ${s.ret >= 0 ? '+' : ''}${s.ret}%` : '—';
+  el.innerHTML = `<div style="padding:12px 16px;">
+    <div class="metric-row"><span>Total positions</span><span>${total}</span></div>
+    <div class="metric-row"><span>Avg composite score</span><span>${avgScore != null ? avgScore.toFixed(0) : '—'}</span></div>
+    <div class="metric-row"><span>Portfolio beta vs SPX</span><span>${beta != null ? beta.toFixed(2) : '—'}</span></div>
+    <div class="metric-row"><span>Best performer (since signal)</span><span class="${best && best.ret >= 0 ? 'up' : 'down'}">${fmtPerf(best)}</span></div>
+    <div class="metric-row"><span>Worst performer (since signal)</span><span class="${worst && worst.ret >= 0 ? 'up' : 'down'}">${fmtPerf(worst)}</span></div>
+    <div class="apex-note" style="margin-top:8px;">Late-cycle positioning: overweight value and quality, keep some gold as hedge, and avoid over-sizing high-beta growth.</div>
+  </div>`;
+}
 function apexRenderEconomicSurprise() {
   const el = document.getElementById('economicSurpriseTracker');
   if (!el) return;
@@ -2174,10 +2204,34 @@ function apexRenderEconomicSurprise() {
     </div>
     <div class="apex-table-note" style="margin-top:10px;color:var(--green)">Current regime: Mild Beat Cycle (more positive than negative surprises)</div>`;
 }
+function updateMacroRegimeFromOverview(data) {
+  if (!data) return;
+  const set = (id, valueStr, valueClass, color) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = el.querySelector('.ms-value');
+    if (v) { v.textContent = valueStr; v.className = 'ms-value ' + (valueClass || ''); v.style.color = color || ''; }
+  };
+  if (data.fed_funds != null) set('macroMsFedFunds', data.fed_funds.toFixed(2) + '%', 'up');
+  if (data.spread_2y10y != null) {
+    const inv = data.spread_2y10y < 0;
+    set('macroMsSpread', (inv ? '' : '+') + data.spread_2y10y.toFixed(2) + '%', inv ? 'down' : 'up');
+    const spreadEl = document.getElementById('macroMsSpread');
+    if (spreadEl) {
+      const ch = spreadEl.querySelector('.ms-change');
+      if (ch) ch.innerHTML = inv ? '<span class="down">▼</span><span style="color:var(--red)"> INVERTED</span>' : '<span class="up">▲</span><span style="color:var(--text2)"> Steep</span>';
+    }
+  }
+  if (data.cpi_yoy != null) set('macroMsCpi', data.cpi_yoy.toFixed(1) + '%', null, 'var(--gold)');
+  if (data.wti != null) set('macroMsWti', '$' + data.wti.toFixed(2), null, 'var(--oil)');
+  if (data.gold != null) set('macroMsGold', '$' + Math.round(data.gold).toLocaleString(), null, 'var(--gold)');
+  if (data.vix != null) set('macroMsVix', data.vix.toFixed(1), null, 'var(--gold)');
+}
 async function renderOverviewExtensions() {
   apexRenderBreadth();
   apexRenderOverviewInsider();
   apexRenderEconomicSurprise();
+  apexRenderPortfolioSnapshot();
   apexRenderFearGreed(await apexFetchCached('fearGreed', null, '/api/feargreed'));
   apexRenderVixTerm(await apexFetchCached('vixTerm', null, '/api/vix-term'));
 }
@@ -2601,9 +2655,30 @@ aiQuick = function(prompt) {
 
 const apexOriginalRefreshLiveData = refreshLiveData;
 refreshLiveData = async function() {
+  const btn = document.getElementById('refreshBtn');
+  if (btn) { btn.classList.add('loading'); btn.textContent = '…'; }
   await apexOriginalRefreshLiveData();
-  renderOverviewExtensions();
+  try {
+    const [overview, commodities, news, fearGreed] = await Promise.all([
+      apexFetchJSON('/api/overview').catch(() => null),
+      apexFetchJSON('/api/commodities').catch(() => null),
+      apexFetchJSON('/api/news').catch(() => null),
+      apexFetchJSON('/api/feargreed').catch(() => null),
+    ]);
+    updateMacroRegimeFromOverview(overview);
+    if (news && news.articles) { window.APEX_NEWS_ARTICLES = news.articles.map(a => ({ title: a.title, url: a.url, source: a.source, time_ago: a.time_ago, category: a.category, hl: a.title })); renderNews(); }
+    if (fearGreed != null) apexRenderFearGreed(fearGreed);
+    apexRenderVixTerm(await apexFetchCached('vixTerm', null, '/api/vix-term'));
+    apexRenderBreadth();
+    apexRenderOverviewInsider();
+    apexRenderEconomicSurprise();
+    apexRenderPortfolioSnapshot();
+  } catch (e) { console.warn('APEX refresh extras:', e); }
+  const lu = document.getElementById('lastUpdated');
+  if (lu) { lu.textContent = 'Updated ' + new Date().toLocaleTimeString(); lu.classList.add('live'); }
+  if (btn) { btn.classList.remove('loading'); btn.textContent = 'REFRESH'; }
 };
+setInterval(refreshLiveData, 60000);
 
 renderOverviewExtensions();
 // ─────────────────────────────────────────────────────────────────────────

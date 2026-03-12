@@ -295,6 +295,77 @@ def _build_macro_snapshot():
     }
 
 
+def _build_overview():
+    """Fed Funds, CPI YoY, 2s10s spread, WTI, Gold, Brent, VIX. Cached 5 min."""
+    cache_key = 'overview_macro'
+    cached = _cache_get(cache_key, 300)
+    if cached is not None:
+        return cached
+    data = {
+        'fed_funds': None,
+        'cpi_yoy': None,
+        'spread_2y10y': None,
+        'wti': None,
+        'gold': None,
+        'brent': None,
+        'vix': None,
+    }
+    try:
+        ff = _fetch_fred_series('FEDFUNDS')
+        data['fed_funds'] = ff
+    except Exception as e:
+        print('[OVERVIEW] FEDFUNDS error:', e)
+    try:
+        url = f'https://api.stlouisfed.org/fred/series/observations?series_id=CPIAUCSL&api_key={FRED_KEY}&file_type=json&sort_order=desc&limit=13'
+        with urllib.request.urlopen(url, timeout=10) as r:
+            j = json.loads(r.read().decode())
+        obs = j.get('observations', [])
+        if len(obs) >= 13:
+            latest = float(obs[0]['value'])
+            prev12 = float(obs[12]['value'])
+            data['cpi_yoy'] = (latest / prev12 - 1.0) * 100.0
+    except Exception as e:
+        print('[OVERVIEW] CPI error:', e)
+    try:
+        dgs2 = _fetch_fred_series('DGS2')
+        dgs10 = _fetch_fred_series('DGS10')
+        if dgs2 is not None and dgs10 is not None:
+            data['spread_2y10y'] = dgs10 - dgs2
+    except Exception as e:
+        print('[OVERVIEW] spread error:', e)
+    try:
+        for key, sym in [('wti', 'CL=F'), ('gold', 'GC=F'), ('brent', 'BZ=F'), ('vix', '^VIX')]:
+            fi = getattr(yf.Ticker(sym), 'fast_info', None)
+            if fi is not None:
+                last = getattr(fi, 'last_price', None)
+                if last is not None:
+                    data[key] = float(last)
+    except Exception as e:
+        print('[OVERVIEW] commodities/vix error:', e)
+    _cache_set(cache_key, data)
+    return data
+
+
+def _fetch_commodity_quotes():
+    """Spot commodity prices (gold, silver, wti, brent) from yfinance. Cached 5 min."""
+    cache_key = 'commodities_quotes'
+    cached = _cache_get(cache_key, 300)
+    if cached is not None:
+        return cached
+    out = {}
+    for key, ticker in [('gold', 'GC=F'), ('silver', 'SI=F'), ('wti', 'CL=F'), ('brent', 'BZ=F')]:
+        try:
+            t = yf.Ticker(ticker)
+            info = t.fast_info
+            last = getattr(info, 'last_price', None)
+            if last is not None:
+                out[key] = float(last)
+        except Exception:
+            pass
+    _cache_set(cache_key, out)
+    return out
+
+
 def _build_stocks_snapshot():
     """
     Lightweight equity / index snapshot for AI context.
@@ -616,6 +687,18 @@ class ProxyHandler(SimpleHTTPRequestHandler):
         if path == '/api/macro':
             macro = _build_macro_snapshot()
             self._send_json(macro)
+            return
+
+        # Overview: Fed Funds, CPI YoY, 2s10s, WTI, Gold, Brent, VIX
+        if path == '/api/overview':
+            data = _build_overview()
+            self._send_json(data)
+            return
+
+        # Commodities spot prices
+        if path == '/api/commodities':
+            data = _fetch_commodity_quotes()
+            self._send_json(data if data is not None else {})
             return
 
         # Stocks / indices snapshot used for AI context
