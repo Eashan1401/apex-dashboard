@@ -28,6 +28,25 @@ try:
 except Exception:
     _fred = None
 
+# Company name -> ticker for autocomplete (so "BLACKSTONE" resolves to BX)
+COMPANY_NAME_MAP = {
+    "BLACKSTONE": "BX", "BLACKROCK": "BLK", "GOLDMAN": "GS", "GOLDMAN SACHS": "GS",
+    "JPMORGAN": "JPM", "JP MORGAN": "JPM", "MICROSOFT": "MSFT", "APPLE": "AAPL",
+    "NVIDIA": "NVDA", "ALPHABET": "GOOGL", "GOOGLE": "GOOGL", "META": "META", "FACEBOOK": "META",
+    "AMAZON": "AMZN", "TESLA": "TSLA", "EXXON": "XOM", "EXXONMOBIL": "XOM", "AMD": "AMD",
+    "ADVANCED MICRO": "AMD", "BANK OF AMERICA": "BAC", "MORGAN STANLEY": "MS",
+    "WELLS FARGO": "WFC", "CITIGROUP": "C", "CITI": "C", "ASML": "ASML", "SAP": "SAP",
+    "SHELL": "SHEL", "TOTALENERGIES": "TTE", "NESTLE": "NESN.SW", "SIEMENS": "SIE.DE", "LVMH": "MC.PA",
+}
+# Ticker -> searchable name for news filtering (symbol + name in RSS)
+COMPANY_NAME_FOR_NEWS = {
+    "NVDA": "NVIDIA", "MSFT": "Microsoft", "AAPL": "Apple", "GOOGL": "Google",
+    "META": "Meta", "JPM": "JPMorgan", "GS": "Goldman", "BAC": "Bank of America",
+    "BX": "Blackstone", "BLK": "BlackRock", "XOM": "ExxonMobil", "AMD": "AMD",
+    "AMZN": "Amazon", "TSLA": "Tesla", "ASML": "ASML", "SAP": "SAP",
+    "MS": "Morgan Stanley", "WFC": "Wells Fargo", "C": "Citigroup",
+}
+
 # Load .env from finance-ai/ or parent
 try:
     from dotenv import load_dotenv
@@ -398,7 +417,10 @@ def _build_news_for_symbol(symbol):
                 name = (yf.Ticker(symbol).info or {}).get('shortName', '') or ''
             except Exception:
                 pass
-        keywords = [symbol] + [w for w in (name or '').split() if len(w) > 2][:5]
+        keywords = [symbol]
+        if symbol in COMPANY_NAME_FOR_NEWS:
+            keywords.append(COMPANY_NAME_FOR_NEWS[symbol])
+        keywords += [w for w in (name or '').split() if len(w) > 2][:5]
         seen_titles = set()
         articles = []
         now = datetime.utcnow()
@@ -609,8 +631,82 @@ def _sec_cik_for_ticker(symbol):
         return None
 
 
+_SEC_CIK_NAME_CACHE = {}
+
+
+def _sec_name_for_cik(filer_cik):
+    """Resolve filer CIK to person/entity name via data.sec.gov/submissions/CIK{cik}.json. Cached."""
+    if not filer_cik:
+        return None
+    cik_str = str(filer_cik).zfill(10)
+    if cik_str in _SEC_CIK_NAME_CACHE:
+        return _SEC_CIK_NAME_CACHE[cik_str]
+    try:
+        url = f"https://data.sec.gov/submissions/CIK{cik_str}.json"
+        r = requests.get(url, headers={"User-Agent": "APEX Research Terminal contact@apex.com"}, timeout=8)
+        r.raise_for_status()
+        j = r.json()
+        name = (j.get('name') or '').strip() or None
+        _SEC_CIK_NAME_CACHE[cik_str] = name
+        return name
+    except Exception:
+        _SEC_CIK_NAME_CACHE[cik_str] = None
+        return None
+
+
+def _parse_insider_entry(entry, link):
+    """Extract name, transaction_type, shares, value from EDGAR entry. Optionally resolve name via filer CIK from URL."""
+    import re
+    summary = (entry.get('summary') or '')
+    title = (entry.get('title') or '').strip()
+    name = None
+    if hasattr(entry.get('author'), 'get'):
+        name = (entry.get('author') or {}).get('name', '').strip()
+    if not name and entry.get('authors'):
+        authors = entry.get('authors') or []
+        if authors and isinstance(authors[0], dict):
+            name = (authors[0].get('name') or '').strip()
+    if not name and summary:
+        m = re.search(r'(?:Reporting Owner|Filer|Name):\s*([^\n<]+)', summary, re.I)
+        if m:
+            name = m.group(1).strip()
+    if not name and ' - ' in title:
+        name = title.split(' - ')[0].strip()
+    if not name:
+        name = title or 'Unknown'
+    if link and name in ('4', 'Unknown', '') or re.match(r'^\d+$', (name or '')):
+        m = re.search(r'/CIK0*(\d+)/', link) or re.search(r'/data/(\d+)/', link) or re.search(r'(\d{10})', link)
+        if m:
+            cik = m.group(1)
+            resolved = _sec_name_for_cik(cik)
+            if resolved:
+                name = resolved
+    tx_type = 'Form 4'
+    if summary:
+        if 'S-Sale' in summary or 'S-S' in summary:
+            tx_type = 'Sell'
+        elif 'P-Purchase' in summary or 'P-P' in summary:
+            tx_type = 'Buy'
+    shares = None
+    value = None
+    if summary:
+        sm = re.search(r'(\d[\d,]*)\s*shares?', summary, re.I)
+        if sm:
+            try:
+                shares = int(sm.group(1).replace(',', ''))
+            except Exception:
+                pass
+        vm = re.search(r'\$[\s]*([\d,]+(?:\.[\d]+)?)', summary)
+        if vm:
+            try:
+                value = float(vm.group(1).replace(',', ''))
+            except Exception:
+                pass
+    return {'name': name or 'Unknown', 'transaction_type': tx_type, 'shares': shares, 'value': value}
+
+
 def _build_insiders_edgar(symbol):
-    """SEC EDGAR Form 4 RSS + full-text search. Cache 2 hours."""
+    """SEC EDGAR Form 4 RSS + full-text search. Cache 2 hours. Name from author/summary/CIK lookup."""
     symbol = (symbol or '').strip().upper()
     if not symbol:
         return {"symbol": symbol, "transactions": []}
@@ -627,7 +723,6 @@ def _build_insiders_edgar(symbol):
             r.raise_for_status()
             feed = feedparser.parse(r.text)
             for entry in (feed.entries or [])[:15]:
-                title = (entry.get('title') or '').strip()
                 link = next((l.get('href') for l in (entry.get('links') or []) if l.get('rel') == 'alternate'), None) or entry.get('link') or ''
                 updated = entry.get('updated') or entry.get('published') or ''
                 try:
@@ -639,10 +734,13 @@ def _build_insiders_edgar(symbol):
                         date_str = ''
                 except Exception:
                     date_str = str(updated)[:10] if updated else ''
+                parsed = _parse_insider_entry(entry, link)
                 transactions.append({
-                    "name": title.split(' - ')[0].strip() if ' - ' in title else title or "unknown",
+                    "name": parsed['name'],
                     "position": "unknown",
-                    "transaction_type": "4",
+                    "transaction_type": parsed['transaction_type'],
+                    "shares": parsed.get('shares'),
+                    "value": parsed.get('value'),
                     "date": date_str,
                     "source": "SEC EDGAR",
                     "url": link,
@@ -668,7 +766,7 @@ def _build_insiders_edgar(symbol):
                 key = str(fd) + url
                 if key not in seen:
                     seen.add(key)
-                    transactions.append({"name": names, "position": "unknown", "transaction_type": "4", "date": fd[:10] if fd else "", "source": "SEC EDGAR", "url": url or '#'})
+                    transactions.append({"name": names, "position": "unknown", "transaction_type": "Form 4", "date": fd[:10] if fd else "", "source": "SEC EDGAR", "url": url or '#'})
     except Exception as e:
         print('[INSIDERS] EFFTS', symbol, e)
     transactions.sort(key=lambda x: x.get('date') or '', reverse=True)
@@ -1045,15 +1143,34 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             try:
                 t = yf.Ticker(symbol)
                 cal = getattr(t, 'calendar', None)
-                if cal is not None and hasattr(cal, 'iloc'):
+                if cal is not None:
                     try:
-                        next_dates = cal.index.astype(str).tolist() if not cal.empty else []
-                        for dstr in next_dates:
-                            if dstr >= datetime.utcnow().strftime('%Y-%m-%d'):
-                                out['next_earnings'] = dstr[:10]
-                                break
+                        if hasattr(cal, 'columns') and 'Earnings Date' in (cal.columns if hasattr(cal.columns, '__contains__') else []):
+                            dates = cal['Earnings Date']
+                            if hasattr(dates, 'iloc') and len(dates) > 0:
+                                first = dates.iloc[0]
+                                out['next_earnings'] = first.strftime('%Y-%m-%d') if hasattr(first, 'strftime') else str(first)[:10]
+                            elif isinstance(dates, (list, tuple)) and len(dates) > 0:
+                                first = dates[0]
+                                out['next_earnings'] = first.strftime('%Y-%m-%d') if hasattr(first, 'strftime') else str(first)[:10]
+                            elif hasattr(dates, '__len__') and len(dates) > 0:
+                                out['next_earnings'] = str(dates)[:10]
+                        elif hasattr(cal, 'iloc') and not cal.empty:
+                            next_dates = cal.index.astype(str).tolist() if hasattr(cal.index, 'astype') else []
+                            for dstr in next_dates:
+                                if dstr >= datetime.utcnow().strftime('%Y-%m-%d'):
+                                    out['next_earnings'] = dstr[:10]
+                                    break
                     except Exception:
                         pass
+                if out['next_earnings'] is None:
+                    ed = getattr(t, 'earnings_dates', None)
+                    if ed is not None and not getattr(ed, 'empty', True) and len(ed) > 0:
+                        try:
+                            first_date = ed.index[0]
+                            out['next_earnings'] = first_date.strftime('%Y-%m-%d') if hasattr(first_date, 'strftime') else str(first_date)[:10]
+                        except Exception:
+                            pass
                 eh = getattr(t, 'earnings_history', None)
                 if eh is not None and not (getattr(eh, 'empty', True)):
                     try:
@@ -1142,44 +1259,43 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(data)
             return
 
-        # Institutional ownership (EODHD institutional holders endpoint)
+        # Institutional ownership (yfinance)
         if path == '/api/institutional':
             symbol = (qs.get('symbol') or [''])[0].strip().upper()
             if not symbol:
                 self._send_json({'error': 'missing symbol'}, 400)
                 return
-            code = symbol + '.US'
-            raw = _eodhd_get(
-                f'institutional-holders/{code}',
-                cache_key=f'inst_{code}',
-                ttl=3600,
-            )
+            cache_key = f'inst_yf_{symbol}'
+            cached = _cache_get(cache_key, 3600)
+            if cached is not None:
+                self._send_json(cached)
+                return
             out = {
                 'symbol': symbol,
+                'inst_ownership_pct': None,
                 'institutional_ownership_pct': None,
+                'insider_pct': None,
                 'top_holders': [],
                 'ownership_qoq_change_pct': None,
+                'source': 'yfinance',
             }
-            if raw is None:
-                out['source'] = 'unavailable'
-                out['reason'] = 'API plan limitation'
             try:
-                if raw:
-                    out['institutional_ownership_pct'] = raw.get('totalPct')
-                    holders = raw.get('holders') or []
-                    top = []
-                    for it in holders[:3]:
-                        top.append(
-                            {
-                                'holder': it.get('name'),
-                                'shares': it.get('shares'),
-                                'pct_out': it.get('pct'),
-                            }
-                        )
-                    out['top_holders'] = top
-                    out['ownership_qoq_change_pct'] = raw.get('changePct')
-            except Exception:
-                pass
+                t = yf.Ticker(symbol)
+                info = t.info or {}
+                v = info.get('heldPercentInstitutions')
+                out['inst_ownership_pct'] = (v * 100 if v is not None and v < 2 else v)
+                out['institutional_ownership_pct'] = out['inst_ownership_pct']
+                v2 = info.get('heldPercentInsiders')
+                out['insider_pct'] = (v2 * 100 if v2 is not None and v2 < 2 else v2)
+                holders_df = getattr(t, 'institutional_holders', None)
+                if holders_df is not None and not getattr(holders_df, 'empty', True):
+                    for _, row in holders_df.head(3).iterrows():
+                        holder = row['Holder'] if 'Holder' in row.index else '—'
+                        pct = row['% Out'] if '% Out' in row.index else None
+                        out['top_holders'].append({'holder': holder, 'pct': pct, 'pct_out': pct})
+            except Exception as e:
+                print('[INSTITUTIONAL] yfinance', symbol, e)
+            _cache_set(cache_key, out)
             self._send_json(out)
             return
 
@@ -1195,7 +1311,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(data)
             return
 
-        # Options intelligence (Polygon snapshot + yfinance HV)
+        # Options intelligence (yfinance option chain)
         if path == '/api/options':
             symbol = (qs.get('symbol') or [''])[0].strip().upper()
             if not symbol:
@@ -1211,87 +1327,84 @@ class ProxyHandler(SimpleHTTPRequestHandler):
                 'iv_percentile': None,
             }
             try:
-                # Equity snapshot
-                snap = _polygon_get(
-                    f'/v2/snapshot/locale/us/markets/stocks/tickers/{symbol}',
-                    cache_key=f'poly_eq_{symbol}',
-                    ttl=900,
-                )
-                print(f'[OPTIONS] equity snapshot for {symbol}:', json.dumps(snap or {})[:300])
-                # Options snapshot for near-dated calls
-                today = datetime.utcnow().date()
-                out_date_to = today + timedelta(days=45)
-                opts = _polygon_get(
-                    f'/v3/snapshot/options/{symbol}',
-                    params={
-                        'limit': 50,
-                        'contract_type': 'call',
-                        'expiration_date.gte': today.isoformat(),
-                        'expiration_date.lte': out_date_to.isoformat(),
-                    },
-                    cache_key=f'poly_opt_{symbol}',
-                    ttl=900,
-                )
-                print(f'[OPTIONS] options snapshot for {symbol}:', json.dumps(opts or {})[:300])
-                calls_oi = 0
-                puts_oi = 0
-                strikes = {}
-                ivs = []
-                for opt in (opts or {}).get('results') or []:
-                    details = opt.get('details') or {}
-                    last_quote = opt.get('last_quote') or {}
-                    o_type = (details.get('contract_type') or '').upper()
-                    open_interest = last_quote.get('open_interest') or 0
-                    iv = last_quote.get('implied_volatility')
-                    if iv:
-                        ivs.append(iv)
-                    strike = details.get('strike_price')
-                    if strike is not None and open_interest:
-                        strikes[strike] = strikes.get(strike, 0) + open_interest
-                    if 'CALL' in o_type:
-                        calls_oi += open_interest
-                    elif 'PUT' in o_type:
-                        puts_oi += open_interest
-                if ivs:
-                    out['iv30'] = sum(ivs) / len(ivs)
-                if calls_oi or puts_oi:
-                    out['put_call_ratio'] = puts_oi / (calls_oi or 1)
-                if strikes:
-                    out['max_pain'] = max(strikes.items(), key=lambda kv: kv[1])[0]
-
-                # HV30 from yfinance
-                try:
-                    tkr = yf.Ticker(symbol)
-                    hist = tkr.history(period="60d")
-                    if not hist.empty:
-                        rets = hist['Close'].pct_change().dropna()
-                        hv = (rets.std() * (252 ** 0.5)) if not rets.empty else None
-                        out['hv30'] = float(hv) if hv is not None else None
-                except Exception as e:
-                    print(f'[OPTIONS] yfinance HV error for {symbol}:', e)
-
-                # IV percentile is placeholder: compare iv30 vs hv30
+                tkr = yf.Ticker(symbol)
+                expirations = getattr(tkr, 'options', None) or []
+                if not expirations:
+                    self._send_json(out)
+                    return
+                today = date.today()
+                target = today + timedelta(days=30)
+                def _days_to(d):
+                    try:
+                        dt = datetime.strptime(d, '%Y-%m-%d').date() if isinstance(d, str) else d
+                        return abs((dt - target).days)
+                    except Exception:
+                        return 999
+                closest_exp = min(expirations, key=_days_to) if expirations else None
+                if not closest_exp:
+                    self._send_json(out)
+                    return
+                chain = tkr.option_chain(closest_exp)
+                calls = chain.calls.dropna(subset=['impliedVolatility']) if chain.calls is not None and not chain.calls.empty else None
+                puts = chain.puts.dropna(subset=['impliedVolatility']) if chain.puts is not None and not chain.puts.empty else None
+                if calls is not None and not calls.empty and puts is not None and not puts.empty:
+                    iv_c = calls['impliedVolatility'].mean()
+                    iv_p = puts['impliedVolatility'].mean()
+                    out['iv30'] = round(((iv_c + iv_p) / 2) * 100, 1)
+                coi = (chain.calls['openInterest'].sum() if chain.calls is not None and 'openInterest' in chain.calls.columns else 0) or 1
+                poi = chain.puts['openInterest'].sum() if chain.puts is not None and 'openInterest' in chain.puts.columns else 0
+                out['put_call_ratio'] = round(poi / coi, 2)
+                all_strikes = sorted(set((chain.calls['strike'].tolist() if chain.calls is not None else []) + (chain.puts['strike'].tolist() if chain.puts is not None else [])))
+                pain = {}
+                for s in all_strikes:
+                    c_pain = p_pain = 0
+                    if chain.calls is not None and 'openInterest' in chain.calls.columns:
+                        c_sub = chain.calls[chain.calls['strike'] < s]
+                        if not c_sub.empty:
+                            c_pain = ((s - c_sub['strike']) * c_sub['openInterest']).sum()
+                    if chain.puts is not None and 'openInterest' in chain.puts.columns:
+                        p_sub = chain.puts[chain.puts['strike'] > s]
+                        if not p_sub.empty:
+                            p_pain = ((p_sub['strike'] - s) * p_sub['openInterest']).sum()
+                    pain[s] = c_pain + p_pain
+                if pain:
+                    out['max_pain'] = min(pain, key=pain.get)
+                hist = tkr.history(period="60d")
+                if not hist.empty:
+                    rets = hist['Close'].pct_change().dropna()
+                    hv = (rets.std() * (252 ** 0.5)) if not rets.empty else None
+                    out['hv30'] = round(float(hv), 4) if hv is not None else None
                 if out['iv30'] is not None and out['hv30'] is not None and out['hv30'] > 0:
-                    ratio = out['iv30'] / out['hv30']
-                    out['iv_percentile'] = max(0.0, min(100.0, (ratio - 0.5) * 100))
-
-                if (out['put_call_ratio'] is not None and out['put_call_ratio'] > 1.5) or (
-                    out['iv30'] is not None and out['hv30'] is not None and out['iv30'] > out['hv30'] * 1.5
-                ):
+                    out['iv_percentile'] = round(min((out['iv30'] / 100) / out['hv30'] * 50, 100), 0)
+                if (out.get('put_call_ratio') and out['put_call_ratio'] > 1.5) or (out['iv30'] and out['hv30'] and out['iv30'] > out['hv30'] * 100 * 1.5):
                     out['unusual_activity'] = True
             except Exception as e:
                 print(f'[OPTIONS] error for {symbol}:', e)
             self._send_json(out)
             return
 
-        # News RSS aggregation (optional ?symbol= for company-specific news)
+        # News RSS aggregation (optional ?symbol= or ?topic= for filtered news)
         if path == '/api/news':
             symbol_param = (qs.get('symbol') or [''])[0].strip().upper() if qs.get('symbol') else ''
+            topic_param = (qs.get('topic') or [''])[0].strip() if qs.get('topic') else ''
             if symbol_param:
                 # Company-specific: filter RSS by symbol/name + merge yfinance news
                 articles = _build_news_for_symbol(symbol_param)
                 payload = {'articles': articles[:20]}
                 self._send_json(payload)
+                return
+            if topic_param:
+                # Topic brief: filter cached RSS by topic keywords
+                cache_key = 'news_rss'
+                cached = _cache_get(cache_key, 99999)
+                articles = []
+                if cached and cached.get('articles'):
+                    keywords = [w.lower() for w in topic_param.split() if len(w) > 1]
+                    for a in cached['articles']:
+                        tit = (a.get('title') or '').lower()
+                        if any(kw in tit for kw in keywords):
+                            articles.append(a)
+                self._send_json({'articles': articles[:15]})
                 return
             cache_key = 'news_rss'
             cached = _cache_get(cache_key, 600)
@@ -1366,14 +1479,32 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(payload)
             return
 
-        # Stock universe autocomplete (in-memory, <50ms)
+        # Stock universe autocomplete (in-memory, <50ms); company name -> ticker first
         if path == '/api/search/autocomplete':
             q = (qs.get('q') or [''])[0].strip()
             if not q:
                 self._send_json({'results': []})
                 return
-            results = search_universe(q, limit=10)
-            self._send_json({'results': results})
+            qu = q.upper()
+            results = []
+            if qu in COMPANY_NAME_MAP:
+                ticker = COMPANY_NAME_MAP[qu]
+                u = get_stock_universe()
+                info = (u or {}).get(ticker) or {}
+                results.append({
+                    'ticker': ticker,
+                    'name': info.get('name', qu.replace('_', ' ').title()),
+                    'sector': info.get('sector', ''),
+                    'industry': info.get('industry', ''),
+                    'index': info.get('index', ''),
+                })
+            universe_results = search_universe(q, limit=10)
+            seen = {r['ticker'] for r in results}
+            for r in universe_results:
+                if r['ticker'] not in seen:
+                    seen.add(r['ticker'])
+                    results.append(r)
+            self._send_json({'results': results[:10]})
             return
 
         # Full stock search (price, fundamentals, analyst, news, factors, risk, index, AI)

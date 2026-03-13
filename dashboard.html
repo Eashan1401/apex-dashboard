@@ -124,7 +124,8 @@
   .ticker-item{display:flex;align-items:center;gap:8px;padding:0 16px;border-right:1px solid var(--border);font-family:var(--mono);font-size:11px;}
 
   /* MAIN GRID */
-  .main{padding:20px 24px;display:grid;grid-template-columns:1fr 1fr 1fr 315px;gap:16px;}
+  .main{padding:20px 24px;display:grid;grid-template-columns:1fr 1fr 1fr 315px;gap:16px;align-items:flex-start;}
+  .main .card:not(.news-panel){height:auto;align-self:flex-start;}
   .card{background:var(--bg2);border:1px solid var(--border);position:relative;overflow:hidden;animation:fadeIn 0.4s ease forwards;}
   .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.3;}
   .card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);}
@@ -301,7 +302,7 @@
   .heatmap-cell{padding:10px 6px;text-align:center;font-family:var(--mono);font-size:10px;border:1px solid var(--border);}
   .heatmap-cell .label{color:var(--text3);margin-bottom:4px;}
   .heatmap-cell .pct{font-family:var(--display);font-size:14px;letter-spacing:1px;}
-  .panel-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .panel-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:flex-start;}
   .panel-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
   .metric-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;}
   .metric-row:last-child{border-bottom:none;}
@@ -338,7 +339,7 @@
   .links-stack a:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,0.05);}
 
   /* EXTENDED PANELS */
-  .panel-4col{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  .panel-4col{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:flex-start;}
   .apex-banner{margin:16px 24px 0;border-left:4px solid #d6a63a;}
   .apex-banner-body{padding:16px 18px;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:16px;align-items:start;}
   .apex-regime-kicker,.apex-mini-label,.apex-footer-note,.apex-meta-line,.apex-table-note,.apex-todo{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;}
@@ -541,15 +542,15 @@
     <span class="qtag" onclick="qs('MSFT')">MSFT</span>
     <span class="qtag" onclick="qs('JPM')">JPM</span>
     <span class="qtag" onclick="qs('GOLD')">GOLD</span>
-    <span class="qtag" onclick="qs('WTI OIL')">OIL</span>
+    <span class="qtag" onclick="qs('OIL')">OIL</span>
     <span class="qtag" onclick="qs('PRIVATE CREDIT')">PRIVATE CREDIT</span>
-    <span class="qtag" onclick="qs('FOMC FED RATE')">FOMC</span>
+    <span class="qtag" onclick="qs('FOMC')">FOMC</span>
     <span class="qtag" onclick="qs('ASML')">ASML</span>
     <span class="qtag" onclick="qs('BLACKROCK')">BLACKROCK</span>
     <span class="qtag" onclick="qs('YIELD CURVE')">YIELD CURVE</span>
     <span class="qtag" onclick="qs('SPY ETF')">SPY ETF</span>
-    <span class="qtag" onclick="qs('IRAN GEOPOLITICAL')">IRAN / GEO</span>
-    <span class="qtag" onclick="qs('BLACKSTONE BREIT')">BLACKSTONE</span>
+    <span class="qtag" onclick="qs('IRAN / GEO')">IRAN / GEO</span>
+    <span class="qtag" onclick="qs('BLACKSTONE')">BLACKSTONE</span>
   </div>
   <div class="search-dropdown" id="sDropdown">
     <div id="autocompleteList" class="autocomplete-list" style="display:none;"></div>
@@ -943,13 +944,13 @@
 <!-- MACRO PAGE -->
 <div id="macroPage" class="tab-page">
   <div class="page-title">MACRO</div>
-  <div class="card">
+  <div class="card" id="macroSectionYieldCurve">
     <div class="card-header"><span class="card-title">US Yield Curve <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('yieldCurve')" title="How is this calculated?">i</span></span><span class="card-badge">3M → 30Y · HISTORICAL COMPARISON</span></div>
     <div class="yield-curve-full" id="yieldCurveFull"></div>
     <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:8px;">— Current (solid) vs 6M ago (dashed) · Inversion 2Y/10Y: -18bp</div>
   </div>
   <div class="panel-2col">
-    <div class="card">
+    <div class="card" id="macroSectionFedWatch">
       <div class="card-header"><span class="card-title">Fed Policy Tracker</span><span class="card-badge">RATE HISTORY · DOT PLOT</span></div>
       <div id="fedTracker"></div>
     </div>
@@ -983,7 +984,7 @@
       <div class="card-header"><span class="card-title">Recession Probability Tracker <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('recession')" title="How is this calculated?">i</span></span><span class="card-badge">YIELD CURVE · CREDIT · PMI</span></div>
       <div id="recessionTracker"></div>
     </div>
-    <div class="card">
+    <div class="card" id="macroSectionGeo">
       <div class="card-header"><span class="card-title">Geopolitical Risk Monitor</span><span class="card-badge">IRAN · TRADE · CB DIVERGENCE</span></div>
       <div id="geoRiskMonitor"></div>
     </div>
@@ -1789,8 +1790,126 @@ function showDetail(q){
 
 function closeDetail(){document.getElementById('detailPanel').classList.remove('open');document.getElementById('searchInput').value='';}
 
-function qs(q){const ticker=(q||'').trim().split(/\s+/)[0];if(ticker){document.getElementById('searchInput').value=ticker;runStockSearch(ticker.toUpperCase());}}
-function doSearch(){const q=document.getElementById('searchInput').value.trim();if(q)runStockSearch(q.toUpperCase());}
+var TOPIC_ROUTES = {
+  'YIELD CURVE': { type: 'macro', section: 'macroSectionYieldCurve', tab: 'macro' },
+  'FOMC': { type: 'macro', section: 'macroSectionFedWatch', tab: 'macro' },
+  'FED': { type: 'macro', section: 'macroSectionFedWatch', tab: 'macro' },
+  'OIL': { type: 'commodity', symbol: 'CL=F', name: 'WTI Crude Oil' },
+  'WTI': { type: 'commodity', symbol: 'CL=F', name: 'WTI Crude Oil' },
+  'WTI OIL': { type: 'commodity', symbol: 'CL=F', name: 'WTI Crude Oil' },
+  'BRENT': { type: 'commodity', symbol: 'BZ=F', name: 'Brent Crude' },
+  'GOLD': { type: 'commodity', symbol: 'GC=F', name: 'Gold Spot' },
+  'SILVER': { type: 'commodity', symbol: 'SI=F', name: 'Silver' },
+  'NATURAL GAS': { type: 'commodity', symbol: 'NG=F', name: 'Natural Gas' },
+  'SPY': { type: 'index', symbol: 'SPY', name: 'S&P 500 ETF' },
+  'SPY ETF': { type: 'index', symbol: 'SPY', name: 'S&P 500 ETF' },
+  'S&P': { type: 'index', symbol: '^GSPC', name: 'S&P 500' },
+  'NASDAQ': { type: 'index', symbol: '^IXIC', name: 'NASDAQ' },
+  'NDX': { type: 'index', symbol: '^NDX', name: 'NASDAQ 100' },
+  'VIX': { type: 'index', symbol: '^VIX', name: 'CBOE VIX' },
+  'DAX': { type: 'index', symbol: '^GDAXI', name: 'DAX 40' },
+  'IRAN': { type: 'topic', query: 'Iran geopolitical risk oil markets' },
+  'IRAN / GEO': { type: 'topic', query: 'Iran geopolitical risk oil markets' },
+  'IRAN GEOPOLITICAL': { type: 'topic', query: 'Iran geopolitical risk oil markets' },
+  'PRIVATE CREDIT': { type: 'topic', query: 'private credit market stress BDC redemption PIK' },
+  'BLACKROCK': { type: 'stock', symbol: 'BLK' },
+  'BLACKSTONE': { type: 'stock', symbol: 'BX' },
+  'BLACKSTONE BREIT': { type: 'stock', symbol: 'BX' }
+};
+
+function navigateToMacroSection(sectionId) {
+  document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.nav-tab[data-page="macro"]').forEach(x => x.classList.add('active'));
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  var macroEl = document.getElementById('macroPage');
+  if (macroEl) macroEl.classList.add('active');
+  setTimeout(function() {
+    var el = document.getElementById(sectionId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+async function resolveAndSearch(rawQuery) {
+  var q = (rawQuery || '').trim().toUpperCase();
+  if (!q) return;
+  var route = TOPIC_ROUTES[q];
+  if (route) {
+    if (route.type === 'macro') { navigateToMacroSection(route.section); return; }
+    if (route.type === 'topic') { showTopicBrief(route.query); return; }
+    if (route.type === 'stock' || route.type === 'commodity' || route.type === 'index') { runStockSearch(route.symbol); return; }
+  }
+  if (/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(q)) { runStockSearch(q); return; }
+  try {
+    var res = await fetch((window.APEX_PROXY || '') + '/api/search/autocomplete?q=' + encodeURIComponent(q));
+    var data = await res.json();
+    if (data.results && data.results.length > 0) { runStockSearch(data.results[0].ticker); return; }
+  } catch (e) {}
+  runStockSearch(q);
+}
+
+function handleSearchIntent(rawQuery) {
+  var q = (rawQuery || '').trim().toUpperCase();
+  if (!q) return;
+  var route = TOPIC_ROUTES[q] || TOPIC_ROUTES[q.split(/\s+/)[0]];
+  if (route) {
+    if (route.type === 'macro') { navigateToMacroSection(route.section); return; }
+    if (route.type === 'topic') { showTopicBrief(route.query); return; }
+    if (route.type === 'stock' || route.type === 'commodity' || route.type === 'index') { runStockSearch(route.symbol); return; }
+  }
+  resolveAndSearch(rawQuery);
+}
+
+async function showTopicBrief(query) {
+  var panel = document.getElementById('stockSearchPanel');
+  if (!panel) return;
+  panel.classList.add('open');
+  panel.classList.add('topic-brief-mode');
+  panel.setAttribute('data-mode', 'topic');
+  document.getElementById('stockSearchSym').textContent = query;
+  document.getElementById('stockSearchName').textContent = 'TOPIC BRIEF';
+  document.getElementById('stockSearchBadges').innerHTML = '<span class="dp-badge">TOPIC</span>';
+  var priceBlock = panel.querySelector('.dp-price-block');
+  if (priceBlock) priceBlock.style.display = 'none';
+  document.querySelectorAll('.stock-search-panel .stock-tab').forEach(function(t) {
+    t.style.display = t.dataset.tab === 'news' || t.dataset.tab === 'ai' ? '' : 'none';
+  });
+  document.querySelectorAll('.stock-search-panel .stock-tab').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === 'news'); });
+  document.querySelectorAll('.stock-tab-content').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'stockTabNews');
+  });
+  document.getElementById('stockTabOverview').textContent = '';
+  document.getElementById('stockTabFundamentals').textContent = '';
+  document.getElementById('stockTabFactors').textContent = '';
+  document.getElementById('stockTabNews').innerHTML = '<div class="apex-note">Loading news…</div>';
+  document.getElementById('stockTabAi').innerHTML = '<div class="apex-note">Loading AI briefing…</div>';
+  try {
+    var newsResp = await fetch((window.APEX_PROXY || '') + '/api/news?topic=' + encodeURIComponent(query));
+    var newsData = await newsResp.json();
+    var articles = (newsData && newsData.articles) ? newsData.articles : [];
+    var esc = function(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+    document.getElementById('stockTabNews').innerHTML = articles.length ? articles.map(function(n) {
+      var u = (n.url||'#').replace(/"/g,'&quot;');
+      return '<div class="news-item"><div class="news-src"><span class="nsrc">' + esc(n.source) + '</span><span class="ntime">' + (n.time_ago||'') + '</span></div><div class="news-hl" data-url="' + u + '" onclick="window.open(this.getAttribute(\'data-url\'),\'_blank\')" style="cursor:pointer;">' + esc(n.title) + '</div></div>';
+    }).join('') : '<div class="apex-note">No articles for this topic.</div>';
+  } catch (e) { document.getElementById('stockTabNews').innerHTML = '<div class="apex-note">News unavailable.</div>'; }
+  try {
+    var aiResp = await fetch((window.APEX_PROXY || '') + '/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Give a concise financial market briefing on: ' + query + '. Cover: current situation, market impact, key risks, what to watch.' }) });
+    var aiData = await aiResp.json();
+    var text = (aiData && aiData.response) ? aiData.response : (aiData.reply || 'AI briefing unavailable.');
+    document.getElementById('stockTabAi').innerHTML = '<div style="font-family:var(--mono);font-size:12px;white-space:pre-wrap;line-height:1.7;">' + (text || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+  } catch (e) { document.getElementById('stockTabAi').innerHTML = '<div class="apex-note">AI briefing failed.</div>'; }
+}
+
+function qs(q) {
+  var raw = (q || '').trim();
+  if (!raw) return;
+  document.getElementById('searchInput').value = raw;
+  handleSearchIntent(raw);
+}
+function doSearch() {
+  var q = document.getElementById('searchInput').value.trim();
+  if (q) resolveAndSearch(q);
+}
 
 // LIVE DROPDOWN + STOCK UNIVERSE AUTOCOMPLETE
 let APEX_AC_RESULTS=[];let APEX_AC_INDEX=-1;
@@ -2042,10 +2161,15 @@ async function apexFetchCached(bucket, key, path) {
 }
 
 async function runStockSearch(symbol){
-  const sym=(symbol||'').toUpperCase().trim();
+  var sym=(symbol||'').toUpperCase().trim();
   if(!sym)return;
-  const panel=document.getElementById('stockSearchPanel');
+  var panel=document.getElementById('stockSearchPanel');
   if(!panel){showDetail(sym);return;}
+  panel.classList.remove('topic-brief-mode');
+  panel.setAttribute('data-mode','stock');
+  var priceBlock = panel.querySelector('.dp-price-block');
+  if(priceBlock) priceBlock.style.display='';
+  document.querySelectorAll('.stock-search-panel .stock-tab').forEach(function(t){ t.style.display=''; });
   panel.classList.add('open');
   document.getElementById('stockSearchSym').textContent=sym;
   document.getElementById('stockSearchName').textContent='Loading…';
@@ -2083,7 +2207,7 @@ async function runStockSearch(symbol){
   // AI tab
   if(data.H&&data.H.summary){document.getElementById('stockTabAi').innerHTML=`<div style=\"font-family:var(--mono);font-size:12px;white-space:pre-wrap;line-height:1.7;\">${data.H.summary}</div><div style=\"margin-top:8px;font-size:9px;color:var(--text3);\">Powered by Groq · generated ${data.H.generated_at}</div>`;}else{document.getElementById('stockTabAi').innerHTML='<div class=\"apex-note\">AI research note not available yet.</div>';}
 }
-function closeStockSearch(){document.getElementById('stockSearchPanel').classList.remove('open');}
+function closeStockSearch(){var p=document.getElementById('stockSearchPanel');if(p){p.classList.remove('open');p.classList.remove('topic-brief-mode');}}
 function switchStockTab(name){
   document.querySelectorAll('.stock-search-panel .stock-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.stock-tab-content').forEach(p=>p.classList.toggle('active',p.id===`stockTab${name.charAt(0).toUpperCase()+name.slice(1)}`));
@@ -2139,22 +2263,43 @@ function apexRenderVixTerm(data) {
   const el = document.getElementById('vixTermCard');
   const badge = document.getElementById('vixTermBadge');
   if (!el || !badge) return;
-  if (!data || data.current == null) {
+  const spot = data?.vix_spot ?? data?.current;
+  if (data == null || (spot == null && data.vix_3m == null)) {
     badge.textContent = 'N/A';
     el.innerHTML = `<div class="apex-note">VIX term structure unavailable.</div>`;
     return;
   }
-  const curve = data.one_month_ago != null && data.current > data.one_month_ago ? 'Backwardation' : 'Contango';
-  badge.textContent = curve.toUpperCase();
-  el.innerHTML = `
-    <div class="apex-big-number" style="font-size:34px;color:${curve === 'Backwardation' ? 'var(--gold)' : 'var(--green)'}">${apexFmt(data.current,1)}</div>
-    <div class="apex-stat-grid">
-      <div class="apex-stat"><div class="k">1W Ago</div><div class="v">${apexFmt(data.one_week_ago,1)}</div></div>
-      <div class="apex-stat"><div class="k">1M Ago</div><div class="v">${apexFmt(data.one_month_ago,1)}</div></div>
-      <div class="apex-stat"><div class="k">1Y Ago</div><div class="v">${apexFmt(data.one_year_ago,1)}</div></div>
-      <div class="apex-stat"><div class="k">1Y Percentile</div><div class="v">${apexPct(data.percentile_1y,0)}</div></div>
+  const term = (data.term_structure || '').toLowerCase();
+  const isBack = term === 'backwardation';
+  const vSpot = spot != null ? Number(spot).toFixed(1) : '—';
+  const v3m = data.vix_3m != null ? Number(data.vix_3m).toFixed(1) : '—';
+  const v6m = data.vix_6m != null ? Number(data.vix_6m).toFixed(1) : '—';
+  const v1w = data.vix_1w_ago != null ? Number(data.vix_1w_ago).toFixed(2) : '—';
+  const v1m = data.vix_1m_ago != null ? Number(data.vix_1m_ago).toFixed(1) : '—';
+  const lo = data.vix_52w_low != null ? Number(data.vix_52w_low).toFixed(2) : '—';
+  const hi = data.vix_52w_high != null ? Number(data.vix_52w_high).toFixed(2) : '—';
+  const pct = data.vix_percentile != null ? Number(data.vix_percentile).toFixed(1) : null;
+  const pctColor = pct != null ? (pct < 33 ? 'var(--green)' : pct > 66 ? 'var(--red)' : 'var(--gold)') : 'var(--text2)';
+  const rangeW = (lo !== '—' && hi !== '—' && spot != null) ? Math.max(0, Math.min(100, ((spot - data.vix_52w_low) / (data.vix_52w_high - data.vix_52w_low)) * 100)) : 50;
+  badge.textContent = isBack ? 'BACKWARDATION' : 'CONTANGO';
+  el.innerHTML = `<div style="padding:0 16px 12px;">
+    <div class="apex-mini-heading">SPOT</div>
+    <div class="apex-big-number" style="font-size:32px;color:var(--accent)">${vSpot}</div>
+    <div class="apex-stat-grid" style="margin-top:8px;">
+      <div class="apex-stat"><div class="k">VIX Spot</div><div class="v">${vSpot}</div></div>
+      <div class="apex-stat"><div class="k">3M</div><div class="v">${v3m}</div></div>
+      <div class="apex-stat"><div class="k">6M</div><div class="v">${v6m}</div></div>
     </div>
-    <div class="apex-note" style="margin-top:10px">Curve: <span style="color:${curve === 'Backwardation' ? 'var(--red)' : 'var(--green)'}">${curve}</span></div>`;
+    <div style="margin-top:8px;">${isBack ? '<span class="apex-badge red">BACKWARDATION</span>' : '<span class="apex-badge green">CONTANGO</span>'}</div>
+    <div class="apex-stat-grid" style="margin-top:8px;">
+      <div class="apex-stat"><div class="k">1W Ago</div><div class="v">${v1w}</div></div>
+      <div class="apex-stat"><div class="k">1M Ago</div><div class="v">${v1m}</div></div>
+    </div>
+    <div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--text2);">52W Range: ${lo} – ${hi}</div>
+    <div class="apex-gauge-track" style="margin-top:4px;"><span class="apex-gauge-fill" style="width:${rangeW}%;background:var(--accent)"></span></div>
+    <div style="margin-top:6px;font-family:var(--mono);font-size:10px;">VIX Percentile: <span style="color:${pctColor}">${pct != null ? pct + '%' : '—'}</span></div>
+    <div class="apex-note" style="margin-top:8px;font-size:9px;" title="VIX spot &gt; VIX 3M = backwardation = near-term fear exceeds long-term. VIX spot &lt; VIX 3M = contango = normal, markets calm near-term.">Backwardation: spot &gt; 3M (acute stress). Contango: spot &lt; 3M (calm).</div>
+  </div>`;
 }
 function apexRenderBreadth() {
   const el = document.getElementById('breadthCard');
@@ -2380,9 +2525,10 @@ async function apexRenderOptionsIntel() {
   const symbols = ['NVDA','MSFT','AAPL','JPM','XOM','META'];
   const rows = await Promise.all(symbols.map(async symbol => {
     const data = await apexLoadOptions(symbol);
-    const ivp = APEX_OPTION_IVP[symbol];
+    const ivp = data?.iv_percentile ?? APEX_OPTION_IVP[symbol];
     const ratio = apexNum(data?.put_call_ratio);
-    return `<tr><td style="color:var(--accent)">${symbol}</td><td class="${ivp >= 75 ? 'down' : 'up'}">${apexPct(data?.iv30,1)}</td><td>${apexPct(APEX_OPTION_HV30[symbol],1)}</td><td class="${ivp >= 75 ? 'down' : ivp >= 55 ? 'up' : ''}">${ivp}</td><td class="${ratio != null && ratio > 1 ? 'down' : 'up'}">${ratio != null ? ratio.toFixed(2) : '—'}</td><td>${data?.max_pain ?? '—'}</td><td>${data?.unusual_activity ? '<span class="apex-badge red">Yes</span>' : '<span class="apex-badge green">No</span>'}</td></tr>`;
+    const hv30Display = data?.hv30 != null ? apexPct(data.hv30 * 100, 1) : apexPct(APEX_OPTION_HV30[symbol], 1);
+    return `<tr><td style="color:var(--accent)">${symbol}</td><td class="${ivp >= 75 ? 'down' : 'up'}">${apexPct(data?.iv30,1)}</td><td>${hv30Display}</td><td class="${ivp >= 75 ? 'down' : ivp >= 55 ? 'up' : ''}">${ivp != null ? ivp : '—'}</td><td class="${ratio != null && ratio > 1 ? 'down' : 'up'}">${ratio != null ? ratio.toFixed(2) : '—'}</td><td>${data?.max_pain ?? '—'}</td><td>${data?.unusual_activity ? '<span class="apex-badge red">Yes</span>' : '<span class="apex-badge green">No</span>'}</td></tr>`;
   }));
   el.innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Ticker</th><th>IV30</th><th>HV30</th><th>IV Percentile</th><th>Put/Call</th><th>Max Pain</th><th>Unusual Activity</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
