@@ -42,9 +42,9 @@
   /* SEARCH */
   .search-section{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;position:sticky;top:56px;z-index:150;}
   .search-row{display:flex;gap:12px;align-items:center;}
-  .search-box{flex:1;display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border2);padding:0 14px;transition:border-color 0.2s;max-width:800px;}
+  .search-box{flex:1;display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border2);padding:0 14px;transition:border-color 0.2s;max-width:800px;position:relative;z-index:5;}
   .search-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px rgba(0,212,255,0.15);}
-  .search-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 0;letter-spacing:0.5px;}
+  .search-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 0;letter-spacing:0.5px;position:relative;z-index:6;}
   .search-input::placeholder{color:var(--text3);}
   .search-btn{background:var(--accent);color:var(--bg);border:none;padding:10px 20px;font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-weight:600;transition:opacity 0.2s;white-space:nowrap;}
   .search-btn:hover{opacity:0.85;}
@@ -125,7 +125,15 @@
 
   /* MAIN GRID */
   .main{padding:20px 24px;display:grid;grid-template-columns:1fr 1fr 1fr 315px;gap:16px;align-items:flex-start;}
-  .main .card:not(.news-panel){height:auto;align-self:flex-start;}
+  /* Ensure overview cards grow only to content height; keep news column stretched */
+  .main .card:not(.news-panel),
+  .main .overview-card,
+  .main .metric-card,
+  .main .info-card{
+    height:auto !important;
+    min-height:0 !important;
+    align-self:flex-start !important;
+  }
   .card{background:var(--bg2);border:1px solid var(--border);position:relative;overflow:hidden;animation:fadeIn 0.4s ease forwards;}
   .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.3;}
   .card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);}
@@ -369,6 +377,13 @@
   .apex-badge.red{color:var(--red);border-color:rgba(255,68,68,0.35);}
   .apex-badge.yellow{color:var(--gold);border-color:rgba(255,215,0,0.35);}
   .apex-badge.cyan{color:var(--accent);border-color:rgba(0,212,255,0.35);}
+
+  /* MACRO INDICATORS LAYOUT (stats | calendar | scorecard) */
+  .macro-indicators-row{display:flex;flex-direction:row;gap:24px;align-items:flex-start;margin-top:16px;}
+  .macro-ind-col{flex:1 1 0;}
+  .macro-ind-col-left{flex-basis:30%;}
+  .macro-ind-col-mid{flex-basis:35%;}
+  .macro-ind-col-right{flex-basis:35%;}
   .apex-score-badge{display:inline-flex;min-width:46px;justify-content:center;padding:3px 8px;font-family:var(--mono);font-size:10px;letter-spacing:1px;border:1px solid var(--border2);}
   .apex-score-badge.green{background:rgba(0,230,118,0.08);color:var(--green);border-color:rgba(0,230,118,0.3);}
   .apex-score-badge.yellow{background:rgba(255,215,0,0.08);color:var(--gold);border-color:rgba(255,215,0,0.3);}
@@ -959,14 +974,24 @@
       <div id="inflationDashboard"></div>
     </div>
   </div>
-  <div class="panel-2col">
-    <div class="card">
-      <div class="card-header"><span class="card-title">Economic Indicators</span><span class="card-badge">GDP · UNEMP · RETAIL · PMI · HOUSING</span></div>
-      <div class="indicator-block" id="econIndicators"></div>
+  <div class="macro-indicators-row">
+    <div class="macro-ind-col macro-ind-col-left">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Economic Indicators</span><span class="card-badge">GDP · UNEMP · RETAIL · PMI · HOUSING</span></div>
+        <div class="indicator-block" id="econIndicators"></div>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">Macro Signal Scorecard</span><span class="card-badge">LIVE</span></div>
-      <div id="macroScorecard"></div>
+    <div class="macro-ind-col macro-ind-col-mid">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Economic Calendar Snapshot</span><span class="card-badge">NEXT 8 EVENTS</span></div>
+        <div id="econCalendarSnapshot"></div>
+      </div>
+    </div>
+    <div class="macro-ind-col macro-ind-col-right">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Macro Signal Scorecard</span><span class="card-badge">LIVE</span></div>
+        <div id="macroScorecard"></div>
+      </div>
     </div>
   </div>
   <div class="panel-2col">
@@ -1533,7 +1558,7 @@ const SIGS=[
   {t:'BX',r:'HOLD',rc:'rh',pt:'$140',now:'$128',up:'+9.4%',u:1,th:'BREIT redemption overhang. Watch for stabilization; view based on latest flows and distrib.'},
 ];
 document.getElementById('sigGrid').innerHTML=SIGS.map(s=>`
-  <div class="sig-item" onclick="qs('${s.t} stock analysis valuation')">
+  <div class="sig-item" data-ticker="${s.t}" onclick="qs('${s.t}')">
     <div class="si-ticker">${s.t}</div>
     <div class="si-rating ${s.rc}">${s.r}</div>
     <div class="si-target">PT: ${s.pt} | Now: ${s.now}</div>
@@ -2181,8 +2206,20 @@ async function runStockSearch(symbol){
   document.getElementById('stockTabAi').textContent='';
   const data=await apexFetchJSON(`/api/search/stock?symbol=${encodeURIComponent(sym)}`);
   if(!data||data.error){panel.classList.remove('open');showDetail(sym);return;}
+  const isCommodity = /\.=F$/.test(sym) || ['GC=F','CL=F','SI=F','BZ=F','NG=F'].includes(sym);
   const A=data.A||{};const B=data.B||{};const C=data.C||{};const G=data.G||{};const F=data.F||{};const E=data.E||{};
-  document.getElementById('stockSearchName').textContent=data.longName||data.shortName||G.industry||'—';
+  const commodityMeta = {
+    'GC=F': { name:'Gold', unit:'XAU/USD' },
+    'CL=F': { name:'WTI Crude Oil', unit:'USD/bbl' },
+    'SI=F': { name:'Silver', unit:'XAG/USD' },
+    'BZ=F': { name:'Brent Crude', unit:'USD/bbl' },
+    'NG=F': { name:'Natural Gas', unit:'USD/MMBtu' },
+  };
+  if (isCommodity && commodityMeta[sym]) {
+    document.getElementById('stockSearchName').textContent = commodityMeta[sym].name;
+  } else {
+    document.getElementById('stockSearchName').textContent=data.longName||data.shortName||G.industry||'—';
+  }
   document.getElementById('stockSearchPrice').textContent=A.price!=null?`$${Number(A.price).toFixed(2)}`:'—';
   const chg=A.change_pct!=null?Number(A.change_pct):null;
   const chgEl=document.getElementById('stockSearchChg');
@@ -2192,12 +2229,38 @@ async function runStockSearch(symbol){
   if(G.sector)badges.push(`<span class=\"dp-badge\">${G.sector}</span>`);
   if(G.sector_etf)badges.push(`<span class=\"dp-badge\">${G.sector_etf}</span>`);
   document.getElementById('stockSearchBadges').innerHTML=badges.join(' ');
-  // Overview tab
-  document.getElementById('stockTabOverview').innerHTML=`<div class=\"apex-cols-2\"><div><div class=\"apex-mini-heading\">Price &amp; Range</div><div class=\"metric-row\"><span>Price</span><span>${A.price!=null?`$${A.price.toFixed(2)}`:'—'}</span></div><div class=\"metric-row\"><span>Market Cap</span><span>${apexShortMoney(A.market_cap)}</span></div><div class=\"metric-row\"><span>Beta</span><span>${A.beta!=null?A.beta.toFixed(2):'—'}</span></div><div class=\"metric-row\"><span>52W Range</span><span>${A.low_52w!=null&&A.high_52w!=null?`$${A.low_52w.toFixed(1)} – $${A.high_52w.toFixed(1)}`:'—'}</span></div></div><div><div class=\"apex-mini-heading\">Analyst &amp; Index</div><div class=\"metric-row\"><span>Recommendation</span><span>${C.recommendation||'—'}</span></div><div class=\"metric-row\"><span>Target (mean)</span><span>${C.target_mean!=null?`$${C.target_mean.toFixed(1)}`:'—'}${C.upside_pct!=null?` (${C.upside_pct.toFixed(1)}% upside)`:''}</span></div><div class=\"metric-row\"><span>Index</span><span>${G.index||'Other'}</span></div><div class=\"metric-row\"><span>Sector</span><span>${G.sector||'—'}</span></div></div></div>`;
-  // Fundamentals tab
-  document.getElementById('stockTabFundamentals').innerHTML=`<div class=\"apex-table-wrap\"><table class=\"apex-table\"><tbody><tr><td>P/E (TTM)</td><td>${B.pe_trailing??'—'}</td><td>P/E (FWD)</td><td>${B.pe_forward??'—'}</td></tr><tr><td>P/B</td><td>${B.pb??'—'}</td><td>P/S</td><td>${B.ps??'—'}</td></tr><tr><td>EV/EBITDA</td><td>${B.ev_ebitda??'—'}</td><td>ROE</td><td>${B.roe!=null?apexPct(B.roe*100):'—'}</td></tr><tr><td>Gross Margin</td><td>${B.gross_margin!=null?apexPct(B.gross_margin*100):'—'}</td><td>Net Margin</td><td>${B.net_margin!=null?apexPct(B.net_margin*100):'—'}</td></tr><tr><td>Revenue TTM</td><td>${apexShortMoney(B.revenue_ttm)}</td><td>Revenue Growth</td><td>${B.revenue_growth!=null?apexPct(B.revenue_growth*100):'—'}</td></tr><tr><td>Debt/Equity</td><td>${B.debt_equity??'—'}</td><td>Dividend Yield</td><td>${B.dividend_yield!=null?apexPct(B.dividend_yield*100):'—'}</td></tr></tbody></table></div>`;
-  // Factors tab
-  if(E&&E.composite_score!=null){document.getElementById('stockTabFactors').innerHTML=`<div class=\"apex-mini-heading\">Composite Score</div><div class=\"apex-big-number\">${E.composite_score}</div><div class=\"apex-score-segments\" style=\"margin-top:12px\"><div class=\"apex-score-segment\"><div class=\"label\">Value</div><div class=\"num\">${E.value_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.value_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Quality</div><div class=\"num\">${E.quality_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.quality_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Momentum</div><div class=\"num\">${E.momentum_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.momentum_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Growth</div><div class=\"num\">${E.growth_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.growth_score}%\"></span></div></div></div>`;}else{document.getElementById('stockTabFactors').textContent='Factor data unavailable.';}
+  // Overview / Fundamentals / Factors tabs
+  if (isCommodity) {
+    // Hide fundamentals and factors tabs for commodities
+    document.querySelectorAll('.stock-search-panel .stock-tab').forEach(function(t){
+      if (t.dataset.tab === 'fundamentals' || t.dataset.tab === 'factors') t.style.display='none';
+      else t.style.display='';
+    });
+    document.querySelectorAll('.stock-search-panel .stock-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === 'overview'); });
+    document.querySelectorAll('.stock-tab-content').forEach(function(p){ p.classList.toggle('active', p.id === 'stockTabOverview'); });
+    const meta = commodityMeta[sym] || { name:sym, unit:'' };
+    const range = (A.low_52w!=null && A.high_52w!=null) ? `$${A.low_52w.toFixed(1)} – $${A.high_52w.toFixed(1)}` : '—';
+    const pos = A.position_52w_pct != null ? Math.max(0, Math.min(100, A.position_52w_pct)) : null;
+    const ytd = A.ytd_pct != null ? `${A.ytd_pct >= 0 ? '+' : ''}${A.ytd_pct.toFixed(1)}%` : '—';
+    const day = A.change_pct != null ? `${A.change_pct >= 0 ? '+' : ''}${Number(A.change_pct).toFixed(2)}%` : '—';
+    document.getElementById('stockTabOverview').innerHTML =
+      `<div style="padding:12px 16px;">
+        <div class="apex-mini-heading">Commodity Overview</div>
+        <div class="apex-big-number">${A.price!=null?A.price.toFixed(2):'—'}</div>
+        <div class="apex-note" style="margin-top:4px;font-size:11px;">${meta.name} · ${meta.unit || ''}</div>
+        <div class="metric-row"><span>Day Change</span><span class="${A.change_pct>=0?'up':'down'}">${day}</span></div>
+        <div class="metric-row"><span>YTD Change</span><span>${ytd}</span></div>
+        <div class="metric-row"><span>52W Range</span><span>${range}</span></div>
+        <div class="apex-gauge-track" style="margin-top:6px;"><span class="apex-gauge-fill" style="width:${pos!=null?pos:0}%;background:var(--accent)"></span></div>
+      </div>`;
+    document.getElementById('stockTabFundamentals').innerHTML = '<div class="apex-note" style="padding:12px 16px;">Fundamental equity metrics are not applicable for futures/commodities.</div>';
+    document.getElementById('stockTabFactors').innerHTML = '';
+  } else {
+    document.querySelectorAll('.stock-search-panel .stock-tab').forEach(function(t){ t.style.display=''; });
+    document.getElementById('stockTabOverview').innerHTML=`<div class=\"apex-cols-2\"><div><div class=\"apex-mini-heading\">Price &amp; Range</div><div class=\"metric-row\"><span>Price</span><span>${A.price!=null?`$${A.price.toFixed(2)}`:'—'}</span></div><div class=\"metric-row\"><span>Market Cap</span><span>${apexShortMoney(A.market_cap)}</span></div><div class=\"metric-row\"><span>Beta</span><span>${A.beta!=null?A.beta.toFixed(2):'—'}</span></div><div class=\"metric-row\"><span>52W Range</span><span>${A.low_52w!=null&&A.high_52w!=null?`$${A.low_52w.toFixed(1)} – $${A.high_52w.toFixed(1)}`:'—'}</span></div></div><div><div class=\"apex-mini-heading\">Analyst &amp; Index</div><div class=\"metric-row\"><span>Recommendation</span><span>${C.recommendation||'—'}</span></div><div class=\"metric-row\"><span>Target (mean)</span><span>${C.target_mean!=null?`$${C.target_mean.toFixed(1)}`:'—'}${C.upside_pct!=null?` (${C.upside_pct.toFixed(1)}% upside)`:''}</span></div><div class=\"metric-row\"><span>Index</span><span>${G.index||'Other'}</span></div><div class=\"metric-row\"><span>Sector</span><span>${G.sector||'—'}</span></div></div></div>`;
+    document.getElementById('stockTabFundamentals').innerHTML=`<div class=\"apex-table-wrap\"><table class=\"apex-table\"><tbody><tr><td>P/E (TTM)</td><td>${B.pe_trailing??'—'}</td><td>P/E (FWD)</td><td>${B.pe_forward??'—'}</td></tr><tr><td>P/B</td><td>${B.pb??'—'}</td><td>P/S</td><td>${B.ps??'—'}</td></tr><tr><td>EV/EBITDA</td><td>${B.ev_ebitda??'—'}</td><td>ROE</td><td>${B.roe!=null?apexPct(B.roe*100):'—'}</td></tr><tr><td>Gross Margin</td><td>${B.gross_margin!=null?apexPct(B.gross_margin*100):'—'}</td><td>Net Margin</td><td>${B.net_margin!=null?apexPct(B.net_margin*100):'—'}</td></tr><tr><td>Revenue TTM</td><td>${apexShortMoney(B.revenue_ttm)}</td><td>Revenue Growth</td><td>${B.revenue_growth!=null?apexPct(B.revenue_growth*100):'—'}</td></tr><tr><td>Debt/Equity</td><td>${B.debt_equity??'—'}</td><td>Dividend Yield</td><td>${B.dividend_yield!=null?apexPct(B.dividend_yield*100):'—'}</td></tr></tbody></table></div>`;
+    if(E&&E.composite_score!=null){document.getElementById('stockTabFactors').innerHTML=`<div class=\"apex-mini-heading\">Composite Score</div><div class=\"apex-big-number\">${E.composite_score}</div><div class=\"apex-score-segments\" style=\"margin-top:12px\"><div class=\"apex-score-segment\"><div class=\"label\">Value</div><div class=\"num\">${E.value_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.value_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Quality</div><div class=\"num\">${E.quality_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.quality_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Momentum</div><div class=\"num\">${E.momentum_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.momentum_score}%\"></span></div></div><div class=\"apex-score-segment\"><div class=\"label\">Growth</div><div class=\"num\">${E.growth_score}</div><div class=\"apex-score-bar\"><span class=\"apex-score-fill\" style=\"width:${E.growth_score}%\"></span></div></div></div>`;}else{document.getElementById('stockTabFactors').textContent='Factor data unavailable.';}
+  }
   // News tab: company-specific from /api/news?symbol=
   const newsResp = await apexFetchJSON(`/api/news?symbol=${encodeURIComponent(sym)}`).catch(() => null);
   const newsList = (newsResp && newsResp.articles) ? newsResp.articles : (data.D || []);
@@ -2608,8 +2671,10 @@ renderMacroPage = async function() {
   document.getElementById('inflationDashboard').innerHTML = `<div style="padding:12px 16px;"><div class="apex-mini-heading">Inflation Decomposition</div>${inflRows.map(r => `<div class="apex-contrib-row"><span>${r[0]}</span><span>${r[1]}%</span><span>${r[2]}</span><div class="apex-mini-bar"><span style="width:${r[3]}%;background:${r[0].includes('Services') ? 'var(--gold)' : 'var(--accent)'}"></span></div></div>`).join('')}<div class="apex-note" style="margin-top:10px">Supercore remains sticky in services ex-shelter, keeping the Fed biased toward patience.</div><div class="apex-table-wrap" style="margin-top:12px;"><table class="apex-table"><thead><tr><th>Breakeven</th><th>Rate</th></tr></thead><tbody><tr><td>2Y</td><td>2.64%</td></tr><tr><td>5Y</td><td>2.42%</td></tr><tr><td>10Y</td><td>2.31%</td></tr></tbody></table></div></div>`;
   const events = (calendar?.events || []).slice(0, 8);
   const impBadge = (imp) => { const i = (imp || '').toUpperCase(); return i === 'HIGH' ? '<span class="apex-badge red">HIGH</span>' : i === 'MED' ? '<span class="apex-badge yellow">MED</span>' : '<span class="apex-badge yellow">MED</span>'; };
-  const calTable = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Date</th><th>Event</th><th>Country</th><th>Forecast</th><th>Previous</th><th>Importance</th></tr></thead><tbody>${events.map(ev => `<tr><td>${ev.date || '—'}</td><td>${ev.event || '—'}</td><td>${ev.country || '—'}</td><td>${ev.forecast ?? '—'}</td><td>${ev.previous ?? '—'}</td><td>${impBadge(ev.importance)}</td></tr>`).join('') || '<tr><td colspan="6">No calendar events available.</td></tr>'}</tbody></table></div>${calendar?.source === 'scheduled' ? '<div style="margin-top:8px;font-size:10px;color:var(--text3);">Scheduled · Verified 2026-03-13</div>' : ''}`;
-  document.getElementById('econIndicators').innerHTML = `<div class="indicator-block">${ECON_INDICATORS.map(e=>`<div class="indicator-item"><div class="l">${e.l}</div><div class="v">${e.v}</div><div class="c ${e.u?'up':'down'}">${e.c}</div></div>`).join('')}</div><div class="apex-mini-heading" style="margin-top:14px;">Economic Calendar Snapshot</div>${calTable}`;
+  const calTable = `<div class="apex-table-wrap"><table class="apex-table" style="width:100%;"><thead><tr><th style="min-width:80px;">Date</th><th style="min-width:160px;">Event</th><th style="min-width:50px;">Country</th><th style="min-width:70px;">Forecast</th><th style="min-width:70px;">Previous</th><th style="min-width:60px;">Importance</th></tr></thead><tbody>${events.map(ev => `<tr><td>${ev.date || '—'}</td><td>${ev.event || '—'}</td><td>${ev.country || '—'}</td><td>${ev.forecast ?? '—'}</td><td>${ev.previous ?? '—'}</td><td>${impBadge(ev.importance)}</td></tr>`).join('') || '<tr><td colspan="6">No calendar events available.</td></tr>'}</tbody></table></div>${calendar?.source === 'scheduled' ? '<div style="margin-top:8px;font-size:10px;color:var(--text3);">Scheduled · Verified 2026-03-13</div>' : ''}`;
+  document.getElementById('econIndicators').innerHTML = `<div class="indicator-block">${ECON_INDICATORS.map(e=>`<div class="indicator-item"><div class="l">${e.l}</div><div class="v">${e.v}</div><div class="c ${e.u?'up':'down'}">${e.c}</div></div>`).join('')}</div>`;
+  const calHost = document.getElementById('econCalendarSnapshot');
+  if (calHost) calHost.innerHTML = `<div class="apex-mini-heading" style="margin-bottom:6px;">Economic Calendar Snapshot</div>${calTable}`;
   const indicators = await apexFetchJSON('/api/indicators').catch(() => null);
   const ind = indicators || {};
   const fmt = (v) => (v == null ? '—' : (typeof v === 'number' && v % 1 !== 0) ? v.toFixed(2) : String(v));

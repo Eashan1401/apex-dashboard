@@ -683,25 +683,25 @@ def _parse_insider_entry(entry, link):
                 name = resolved
     tx_type = 'Form 4'
     if summary:
-        if 'S-Sale' in summary or 'S-S' in summary:
+        if re.search(r'S-Sale|disposition|sold', summary, re.I):
             tx_type = 'Sell'
-        elif 'P-Purchase' in summary or 'P-P' in summary:
+        elif re.search(r'P-Purchase|acquisition|bought|purchase', summary, re.I):
             tx_type = 'Buy'
     shares = None
     value = None
     if summary:
-        sm = re.search(r'(\d[\d,]*)\s*shares?', summary, re.I)
+        sm = re.search(r'(?:shares|qty|quantity)[:\s]+([0-9,]+)', summary, re.I)
         if sm:
             try:
                 shares = int(sm.group(1).replace(',', ''))
             except Exception:
-                pass
-        vm = re.search(r'\$[\s]*([\d,]+(?:\.[\d]+)?)', summary)
+                shares = None
+        vm = re.search(r'(?:value|amount|total)[:\s]+\$?([0-9,]+)', summary, re.I)
         if vm:
             try:
                 value = float(vm.group(1).replace(',', ''))
             except Exception:
-                pass
+                value = None
     return {'name': name or 'Unknown', 'transaction_type': tx_type, 'shares': shares, 'value': value}
 
 
@@ -817,6 +817,7 @@ def _build_stock_search(symbol):
         return cached
 
     sym = symbol.upper().strip()
+    is_future = sym.endswith("=F")
     out = {
         'symbol': sym,
         'A': {}, 'B': {}, 'C': {}, 'D': [], 'E': {}, 'F': {}, 'G': {}, 'H': None,
@@ -839,13 +840,17 @@ def _build_stock_search(symbol):
             chg = close - prev
             pct = (chg / prev * 100) if prev else 0
             q = {'price': close, 'chg': chg, 'pct': f'{pct:+.2f}%', 'u': chg >= 0}
+        # For futures and tickers missing quote, fall back to yfinance regularMarketPrice / previousClose
+        price_fallback = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose')
+        chg_fallback = info.get('regularMarketChange')
+        pct_fallback = info.get('regularMarketChangePercent')
         out['A'] = {
-            'price': _safe_num(q.get('price') if q else info.get('currentPrice')),
-            'change': _safe_num(q.get('chg') if q else info.get('regularMarketChange')),
-            'change_pct': _safe_num(q.get('pct') if q else info.get('regularMarketChangePercent')),
+            'price': _safe_num(q.get('price') if q else price_fallback),
+            'change': _safe_num(q.get('chg') if q else chg_fallback),
+            'change_pct': _safe_num(q.get('pct') if q else pct_fallback),
             'volume': _safe_num(info.get('volume') or info.get('regularMarketVolume')),
             'avg_volume': _safe_num(info.get('averageVolume')),
-            'market_cap': _safe_num(info.get('marketCap')),
+            'market_cap': None if is_future else _safe_num(info.get('marketCap')),
             'enterprise_value': _safe_num(info.get('enterpriseValue')),
             'high_52w': _safe_num(info.get('fiftyTwoWeekHigh')),
             'low_52w': _safe_num(info.get('fiftyTwoWeekLow')),
@@ -853,12 +858,21 @@ def _build_stock_search(symbol):
             'day_low': _safe_num(info.get('dayLow')),
             'open': _safe_num(info.get('open')),
             'previous_close': _safe_num(info.get('previousClose')),
-            'beta': _safe_num(info.get('beta')),
+            'beta': None if is_future else _safe_num(info.get('beta')),
         }
         if out['A'].get('high_52w') and out['A'].get('low_52w') and out['A'].get('price'):
             h, l, p = out['A']['high_52w'], out['A']['low_52w'], out['A']['price']
             if h != l:
                 out['A']['position_52w_pct'] = (p - l) / (h - l) * 100.0
+        # YTD performance (for commodities and stocks)
+        try:
+            if not hist.empty:
+                first = hist['Close'].iloc[0]
+                last = hist['Close'].iloc[-1]
+                if first:
+                    out['A']['ytd_pct'] = (last / first - 1.0) * 100.0
+        except Exception:
+            pass
     except Exception:
         pass
 
