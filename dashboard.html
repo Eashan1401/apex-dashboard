@@ -1959,24 +1959,56 @@ function selectAutocomplete(ticker){
   runStockSearch(ticker.toUpperCase());
 }
 
-document.getElementById('searchInput').addEventListener('input',function(){
-  const q=this.value;
-  if(!q){document.getElementById('sDropdown').classList.remove('open');APEX_AC_RESULTS=[];APEX_AC_INDEX=-1;renderAutocomplete();return;}
-  searchAutocomplete(q);
-});
-document.getElementById('searchInput').addEventListener('keydown',function(e){
-  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
-    if(!APEX_AC_RESULTS.length)return;
-    if(e.key==='ArrowDown')APEX_AC_INDEX=(APEX_AC_INDEX+1)%APEX_AC_RESULTS.length;
-    else APEX_AC_INDEX=(APEX_AC_INDEX-1+APEX_AC_RESULTS.length)%APEX_AC_RESULTS.length;
-    renderAutocomplete();e.preventDefault();return;
-  }
-  if(e.key==='Enter'){
-    if(APEX_AC_RESULTS.length&&APEX_AC_INDEX>=0){selectAutocomplete(APEX_AC_RESULTS[APEX_AC_INDEX].ticker);e.preventDefault();return;}
-    doSearch();return;
-  }
-  if(e.key==='Escape'){document.getElementById('sDropdown').classList.remove('open');closeDetail();}
-});
+const searchInputEl = document.getElementById('searchInput');
+function apexHideAutocomplete() {
+  const wrap = document.getElementById('sDropdown');
+  if (wrap) wrap.classList.remove('open');
+  APEX_AC_RESULTS = [];
+  APEX_AC_INDEX = -1;
+  renderAutocomplete();
+}
+if (searchInputEl) {
+  // Autocomplete on typing
+  searchInputEl.addEventListener('input', function () {
+    const q = this.value.trim();
+    if (!q.length) {
+      apexHideAutocomplete();
+      return;
+    }
+    searchAutocomplete(q);
+  });
+  // Enter submits, arrows navigate; no preventDefault for normal typing
+  searchInputEl.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!APEX_AC_RESULTS.length) return;
+      if (e.key === 'ArrowDown') {
+        APEX_AC_INDEX = (APEX_AC_INDEX + 1) % APEX_AC_RESULTS.length;
+      } else {
+        APEX_AC_INDEX = (APEX_AC_INDEX - 1 + APEX_AC_RESULTS.length) % APEX_AC_RESULTS.length;
+      }
+      renderAutocomplete();
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'Enter') {
+      const val = this.value.trim();
+      if (APEX_AC_RESULTS.length && APEX_AC_INDEX >= 0) {
+        selectAutocomplete(APEX_AC_RESULTS[APEX_AC_INDEX].ticker);
+        e.preventDefault();
+        return;
+      }
+      if (val) {
+        e.preventDefault();
+        resolveAndSearch(val);
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      apexHideAutocomplete();
+      closeDetail();
+    }
+  });
+}
 document.addEventListener('click',function(e){if(!document.getElementById('searchSection').contains(e.target))document.getElementById('sDropdown').classList.remove('open');});
 
 // ── AI CHAT ──────────────────────────────────────────────────────────────
