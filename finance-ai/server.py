@@ -359,13 +359,26 @@ def _build_overview():
             data['spread_2y10y'] = dgs10 - dgs2
     except Exception as e:
         print('[OVERVIEW] spread error:', e)
+    # Commodities & VIX: prefer FRED for commodities, yfinance for VIX
     try:
-        for key, sym in [('wti', 'CL=F'), ('gold', 'GC=F'), ('brent', 'BZ=F'), ('vix', '^VIX')]:
-            fi = getattr(yf.Ticker(sym), 'fast_info', None)
-            if fi is not None:
-                last = getattr(fi, 'last_price', None)
-                if last is not None:
-                    data[key] = float(last)
+        # WTI crude (USD/bbl)
+        wti = _fetch_fred_series('DCOILWTICO')
+        if wti is not None:
+            data['wti'] = wti
+        # Gold spot (USD/oz)
+        gold = _fetch_fred_series('GOLDAMGBD228NLBM')
+        if gold is not None:
+            data['gold'] = gold
+        # Brent crude (USD/bbl)
+        brent = _fetch_fred_series('DCOILBRENTEU')
+        if brent is not None:
+            data['brent'] = brent
+        # VIX from yfinance
+        fi_vix = getattr(yf.Ticker('^VIX'), 'fast_info', None)
+        if fi_vix is not None:
+            last_vix = getattr(fi_vix, 'last_price', None)
+            if last_vix is not None:
+                data['vix'] = float(last_vix)
     except Exception as e:
         print('[OVERVIEW] commodities/vix error:', e)
     _cache_set(cache_key, data)
@@ -373,13 +386,34 @@ def _build_overview():
 
 
 def _fetch_commodity_quotes():
-    """Spot commodity prices with change % (gold, silver, wti, brent) from yfinance. Cached 5 min."""
+    """Spot commodity prices (gold, silver, wti, brent) from FRED where possible, fallback to yfinance. Cached 5 min."""
     cache_key = 'commodities_quotes'
     cached = _cache_get(cache_key, 300)
     if cached is not None:
         return cached
     out = {}
+    # First try FRED daily series
+    fred_map = {
+        'gold': 'GOLDAMGBD228NLBM',   # Gold price, USD/oz
+        'silver': 'SLVPRUSD',         # Silver price, USD/oz
+        'wti': 'DCOILWTICO',          # WTI crude, USD/bbl
+        'brent': 'DCOILBRENTEU',      # Brent crude, USD/bbl
+    }
+    for key, sid in fred_map.items():
+        try:
+            val = _fetch_fred_series(sid)
+            if val is not None:
+                out[key] = {
+                    'price': round(float(val), 2),
+                    'change': None,
+                    'change_pct': '—',
+                }
+        except Exception:
+            continue
+    # Fallback to yfinance where FRED is unavailable (or FRED_KEY missing)
     for key, ticker in [('gold', 'GC=F'), ('silver', 'SI=F'), ('wti', 'CL=F'), ('brent', 'BZ=F')]:
+        if key in out and out[key].get('price') is not None:
+            continue
         try:
             t = yf.Ticker(ticker)
             fi = getattr(t, 'fast_info', None)
@@ -399,7 +433,7 @@ def _fetch_commodity_quotes():
                     'change_pct': sign + str(round(change_pct, 2)) + '%',
                 }
         except Exception:
-            pass
+            continue
     _cache_set(cache_key, out)
     return out
 
@@ -876,6 +910,17 @@ def _build_stock_search(symbol):
     except Exception:
         pass
 
+    # Override futures pricing with FRED-based commodity quotes where available
+    if is_future:
+        try:
+            quotes = _fetch_commodity_quotes() or {}
+            key_map = {'GC=F': 'gold', 'SI=F': 'silver', 'CL=F': 'wti', 'BZ=F': 'brent'}
+            k = key_map.get(sym)
+            if k and quotes.get(k) and quotes[k].get('price') is not None:
+                out['A']['price'] = float(quotes[k]['price'])
+        except Exception:
+            pass
+
     # Section B — Fundamentals
     try:
         out['B'] = {
@@ -1185,6 +1230,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
                             out['next_earnings'] = first_date.strftime('%Y-%m-%d') if hasattr(first_date, 'strftime') else str(first_date)[:10]
                         except Exception:
                             pass
+                # Primary path: legacy earnings_history, if available
                 eh = getattr(t, 'earnings_history', None)
                 if eh is not None and not (getattr(eh, 'empty', True)):
                     try:
@@ -1206,7 +1252,49 @@ class ProxyHandler(SimpleHTTPRequestHandler):
                                 'revenue_estimate': getattr(row, 'revenueEstimate', None),
                                 'revenue_actual': getattr(row, 'revenueActual', None),
                             })
-                        out['history'] = sorted(out['history'], key=lambda x: x.get('date') or '', reverse=True)[:4]
+                    except Exception:
+                        pass
+
+                # Fallback path: yfinance get_earnings_dates (newer API)
+                if not out['history']:
+                    try:
+                        get_ed = getattr(t, 'get_earnings_dates', None)
+                        if callable(get_ed):
+                            df2 = get_ed(limit=12)
+                            if df2 is not None and not getattr(df2, 'empty', True):
+                                rows = []
+                                today = datetime.utcnow().date()
+                                for idx, row in df2.iterrows():
+                                    d = None
+                                    try:
+                                        if hasattr(idx, 'date'):
+                                            d = idx.date()
+                                        else:
+                                            d = datetime.fromisoformat(str(idx)).date()
+                                    except Exception:
+                                        d = None
+                                    # Only keep past/most recent reported quarters for history
+                                    if d is None or d > today:
+                                        continue
+                                    est = row.get('EPS Estimate') or row.get('epsEstimate')
+                                    act = row.get('Reported EPS') or row.get('EPS Actual') or row.get('epsActual')
+                                    surprise = row.get('Surprise(%)') or row.get('epsSurprisePct')
+                                    if surprise is None and est not in (None, 0) and act is not None:
+                                        try:
+                                            surprise = (float(act) - float(est)) / float(est) * 100.0
+                                        except Exception:
+                                            surprise = None
+                                    rows.append({
+                                        'date': d.strftime('%Y-%m-%d') if d else '',
+                                        'eps_estimate': est,
+                                        'eps_actual': act,
+                                        'eps_surprise_pct': surprise,
+                                        'revenue_estimate': None,
+                                        'revenue_actual': None,
+                                    })
+                                if rows:
+                                    rows.sort(key=lambda x: x.get('date') or '', reverse=True)
+                                    out['history'] = rows[:4]
                     except Exception:
                         pass
             except Exception as e:
