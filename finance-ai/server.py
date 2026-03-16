@@ -1512,6 +1512,49 @@ class ProxyHandler(SimpleHTTPRequestHandler):
         path = parsed.path
         qs = parse_qs(parsed.query)
 
+        # Serve finance-ai.js and a couple of helper assets explicitly to avoid 503s on Render.
+        if path == '/finance-ai.js' or path == '/finance-ai.js?':
+            try:
+                js_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'finance-ai.js')
+                with open(js_path, 'rb') as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/javascript')
+                self.send_header('Content-Length', len(content))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:
+                self.send_error(404, str(e))
+            return
+
+        if path == '/sp500_fallback.json':
+            try:
+                json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sp500_fallback.json')
+                with open(json_path, 'rb') as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', len(content))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:
+                self.send_error(404, str(e))
+            return
+
+        if path == '/stock_universe.py':
+            try:
+                py_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stock_universe.py')
+                with open(py_path, 'rb') as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/x-python')
+                self.send_header('Content-Length', len(content))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:
+                self.send_error(404, str(e))
+            return
+
         # Batch quotes: /api/quotes?symbols=NVDA,MSFT,SPY,...
         if path == '/api/quotes' and qs.get('symbols'):
             raw = (qs.get('symbols') or [''])[0]
