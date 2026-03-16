@@ -1515,7 +1515,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
         # Serve finance-ai.js and a couple of helper assets explicitly to avoid 503s on Render.
         if path == '/finance-ai.js' or path == '/finance-ai.js?':
             try:
-                js_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'finance-ai.js')
+                js_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'finance-ai.js')
                 with open(js_path, 'rb') as f:
                     content = f.read()
                 self.send_response(200)
