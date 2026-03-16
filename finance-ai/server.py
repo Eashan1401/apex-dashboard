@@ -71,6 +71,7 @@ EODHD_KEY = os.environ.get('EODHD_API_KEY', '').strip()
 POLYGON_KEY = os.environ.get('POLYGON_API_KEY', '').strip()
 
 _CACHE = {}
+_DASH_HEALTH = {}
 
 
 def _cache_get(key, ttl_seconds):
@@ -85,6 +86,16 @@ def _cache_get(key, ttl_seconds):
 
 def _cache_set(key, value):
     _CACHE[key] = (time.time(), value)
+
+
+def _touch_health(section, live, ok, message=None):
+    """Record dashboard health metadata for a logical section."""
+    _DASH_HEALTH[section] = {
+        "live": bool(live),
+        "ok": bool(ok),
+        "message": (message or ""),
+        "last_updated": datetime.utcnow().isoformat() + "Z",
+    }
 
 def _fetch_one_quote(symbol):
     data = None
@@ -143,6 +154,236 @@ def _fetch_fred_series(series_id):
     except Exception:
         pass
     return None
+
+
+def _hf_sentiment_for_headlines(headlines):
+    """
+    Call HuggingFace Inference API for financial news sentiment.
+    headlines: list of strings.
+    Returns: {'label': 'Bullish/Bearish/Neutral', 'score': float 0-1, 'by_headline': [...]} or None on hard failure.
+    """
+    cleaned = [h.strip() for h in headlines if h and h.strip()]
+    if not cleaned:
+        return None
+    try:
+        url = "https://api-inference.huggingface.co/models/mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis"
+        resp = requests.post(url, json={"inputs": cleaned}, timeout=30)
+        if resp.status_code != 200:
+            print("[HF_SENTIMENT] error", resp.status_code, resp.text[:200])
+            return None
+        data = resp.json()
+        # HF may return list[ list[{'label','score'}] ]
+        results = []
+        if isinstance(data, list):
+            for item in data:
+                best = None
+                if isinstance(item, list):
+                    for cand in item:
+                        if not isinstance(cand, dict):
+                            continue
+                        if best is None or float(cand.get("score", 0)) > float(best.get("score", 0)):
+                            best = cand
+                elif isinstance(item, dict):
+                    best = item
+                if best:
+                    results.append({"label": best.get("label", ""), "score": float(best.get("score", 0.0))})
+        if not results:
+            return None
+
+        # Map labels to numeric polarity
+        def to_polarity(label):
+            lab = (label or "").lower()
+            if "positive" in lab or "bull" in lab:
+                return 1.0
+            if "negative" in lab or "bear" in lab:
+                return -1.0
+            return 0.0
+
+        polys = [to_polarity(r["label"]) * r["score"] for r in results]
+        avg = sum(polys) / len(polys) if polys else 0.0
+        if avg > 0.15:
+            overall_label = "Bullish"
+        elif avg < -0.15:
+            overall_label = "Bearish"
+        else:
+            overall_label = "Neutral"
+        confidence = min(1.0, abs(avg))
+        out = {
+            "label": overall_label,
+            "score": round(confidence, 3),
+            "by_headline": [
+                {"headline": h, "label": r["label"], "score": r["score"]}
+                for h, r in zip(cleaned, results)
+            ],
+        }
+        return out
+    except Exception as e:
+        print("[HF_SENTIMENT] exception", e)
+        return None
+
+
+def _fetch_research_metrics(symbol):
+    """
+    Key metrics for research brief using yfinance.
+    Returns dict with price, pe, revenue_growth, gross_margin, high_52w, low_52w.
+    """
+    sym = (symbol or "").strip().upper()
+    if not sym:
+        return {}
+    out = {
+        "symbol": sym,
+        "price": None,
+        "pe": None,
+        "revenue_growth": None,
+        "gross_margin": None,
+        "high_52w": None,
+        "low_52w": None,
+    }
+    try:
+        t = yf.Ticker(sym)
+        info = getattr(t, "info", {}) or {}
+        fi = getattr(t, "fast_info", None)
+        price = None
+        if fi is not None:
+            price = getattr(fi, "last_price", None)
+        if price is None:
+            price = info.get("regularMarketPrice")
+        out["price"] = float(price) if price is not None else None
+        out["pe"] = info.get("trailingPE") or info.get("forwardPE")
+        out["revenue_growth"] = info.get("revenueGrowth")
+        out["gross_margin"] = info.get("grossMargins")
+        out["high_52w"] = info.get("fiftyTwoWeekHigh")
+        out["low_52w"] = info.get("fiftyTwoWeekLow")
+    except Exception as e:
+        print("[RESEARCH_METRICS] error", sym, e)
+    return out
+
+
+def _build_research_brief(symbol):
+    """
+    Build AI research brief for a ticker:
+    - last 5 news headlines
+    - sentiment via HF Inference API
+    - key metrics via yfinance
+    - structured brief via Groq LLM
+    Returns dict suitable for /api/research-brief.
+    """
+    sym = (symbol or "").strip().upper()
+    result = {
+        "ticker": sym,
+        "sentiment_score": None,
+        "sentiment_label": None,
+        "sentiment_details": None,
+        "metrics": None,
+        "brief_text": None,
+        "headlines": [],
+        "errors": [],
+    }
+    if not sym:
+        result["errors"].append("Missing ticker symbol")
+        return result
+
+    # Headlines
+    try:
+        articles = _build_news_for_symbol(sym) or []
+        top = articles[:5]
+        result["headlines"] = [{"title": a.get("title"), "source": a.get("source"), "url": a.get("url")} for a in top]
+        titles = [a.get("title") or "" for a in top]
+    except Exception as e:
+        print("[RESEARCH] news error", sym, e)
+        result["errors"].append(f"News fetch failed: {e}")
+        titles = []
+
+    # Sentiment
+    if titles:
+        senti = _hf_sentiment_for_headlines(titles)
+        if senti:
+            result["sentiment_score"] = senti.get("score")
+            result["sentiment_label"] = senti.get("label")
+            result["sentiment_details"] = senti
+        else:
+            result["errors"].append("Sentiment analysis failed")
+    else:
+        result["errors"].append("No recent headlines available for sentiment")
+
+    # Metrics
+    metrics = _fetch_research_metrics(sym)
+    result["metrics"] = metrics
+
+    # Groq brief
+    if not GROQ_API_KEY:
+        result["errors"].append("GROQ_API_KEY not configured on server")
+        return result
+
+    try:
+        # Build a compact context for Groq
+        lines = []
+        lines.append(f"TICKER: {sym}")
+        if result["sentiment_label"] or result["sentiment_score"] is not None:
+            lines.append(
+                f"SENTIMENT: {result['sentiment_label'] or 'Unknown'} "
+                f"(confidence ~{int((result['sentiment_score'] or 0)*100)}%)"
+            )
+        if metrics:
+            lines.append(
+                "METRICS: "
+                f"Price={metrics.get('price')}, "
+                f"PE={metrics.get('pe')}, "
+                f"RevenueGrowth={metrics.get('revenue_growth')}, "
+                f"GrossMargin={metrics.get('gross_margin')}, "
+                f"52W High={metrics.get('high_52w')}, "
+                f"52W Low={metrics.get('low_52w')}"
+            )
+        if result["headlines"]:
+            lines.append("HEADLINES (latest first):")
+            for h in result["headlines"]:
+                lines.append(f"- {h.get('title')}")
+        context = "\n".join(lines)
+
+        system_prompt = (
+            "You are a senior Goldman Sachs equity research analyst. "
+            "Based on the data provided, generate a structured research brief with exactly these sections: "
+            "VERDICT (one of: Strong Buy / Buy / Hold / Avoid / Strong Avoid with one sentence reason), "
+            "BULL CASE (3 bullet points), BEAR CASE (3 bullet points), "
+            "KEY RISKS (2 bullet points), ANALYST NOTE (2 sentences of forward looking commentary). "
+            "Be concise, precise and institutional in tone."
+        )
+
+        payload = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context},
+            ],
+            "temperature": 0.3,
+        }
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=60,
+        )
+        if resp.status_code != 200:
+            msg = f"Groq API error {resp.status_code}: {resp.text[:200]}"
+            print("[RESEARCH] Groq error", msg)
+            result["errors"].append(msg)
+        else:
+            data = resp.json()
+            choices = data.get("choices") or []
+            if choices:
+                brief = (choices[0].get("message") or {}).get("content") or ""
+                result["brief_text"] = brief
+            else:
+                result["errors"].append("Groq API returned no choices")
+    except Exception as e:
+        print("[RESEARCH] Groq exception", e)
+        result["errors"].append(f"Groq call failed: {e}")
+
+    _touch_health("research_brief", True, True, None if not result.get("errors") else "; ".join(result["errors"]))
+    return result
 
 
 def _calc_fear_greed():
@@ -257,6 +498,7 @@ def _build_vix_term():
         data = None
 
     _cache_set(cache_key, data)
+    _touch_health("vix_term", True, data is not None, None if data is not None else "VIX term data unavailable")
     return data
 
 
@@ -359,20 +601,20 @@ def _build_overview():
             data['spread_2y10y'] = dgs10 - dgs2
     except Exception as e:
         print('[OVERVIEW] spread error:', e)
-    # Commodities & VIX: prefer FRED for commodities, yfinance for VIX
+    # Commodities & VIX: use yfinance so prices match futures used elsewhere
     try:
-        # WTI crude (USD/bbl)
-        wti = _fetch_fred_series('DCOILWTICO')
-        if wti is not None:
-            data['wti'] = wti
-        # Gold spot (USD/oz)
-        gold = _fetch_fred_series('GOLDAMGBD228NLBM')
-        if gold is not None:
-            data['gold'] = gold
-        # Brent crude (USD/bbl)
-        brent = _fetch_fred_series('DCOILBRENTEU')
-        if brent is not None:
-            data['brent'] = brent
+        # WTI crude (USD/bbl) via CL=F
+        fi_wti = getattr(yf.Ticker('CL=F'), 'fast_info', None)
+        if fi_wti is not None and getattr(fi_wti, 'last_price', None) is not None:
+            data['wti'] = float(getattr(fi_wti, 'last_price'))
+        # Gold spot (USD/oz) via GC=F
+        fi_gold = getattr(yf.Ticker('GC=F'), 'fast_info', None)
+        if fi_gold is not None and getattr(fi_gold, 'last_price', None) is not None:
+            data['gold'] = float(getattr(fi_gold, 'last_price'))
+        # Brent crude (USD/bbl) via BZ=F
+        fi_brent = getattr(yf.Ticker('BZ=F'), 'fast_info', None)
+        if fi_brent is not None and getattr(fi_brent, 'last_price', None) is not None:
+            data['brent'] = float(getattr(fi_brent, 'last_price'))
         # VIX from yfinance
         fi_vix = getattr(yf.Ticker('^VIX'), 'fast_info', None)
         if fi_vix is not None:
@@ -382,59 +624,57 @@ def _build_overview():
     except Exception as e:
         print('[OVERVIEW] commodities/vix error:', e)
     _cache_set(cache_key, data)
+    _touch_health("overview", True, True, None)
     return data
 
 
 def _fetch_commodity_quotes():
-    """Spot commodity prices (gold, silver, wti, brent) from FRED where possible, fallback to yfinance. Cached 5 min."""
+    """
+    Spot commodity prices (gold, silver, WTI, Brent) from yfinance futures.
+    Returns price, daily change, change_pct, and rolling 52-week high/low.
+    Cached 5 min.
+    """
     cache_key = 'commodities_quotes'
     cached = _cache_get(cache_key, 300)
     if cached is not None:
         return cached
     out = {}
-    # First try FRED daily series
-    fred_map = {
-        'gold': 'GOLDAMGBD228NLBM',   # Gold price, USD/oz
-        'silver': 'SLVPRUSD',         # Silver price, USD/oz
-        'wti': 'DCOILWTICO',          # WTI crude, USD/bbl
-        'brent': 'DCOILBRENTEU',      # Brent crude, USD/bbl
+    tickers = {
+        "gold": "GC=F",
+        "silver": "SI=F",
+        "wti": "CL=F",
+        "brent": "BZ=F",
     }
-    for key, sid in fred_map.items():
+    for key, sym in tickers.items():
         try:
-            val = _fetch_fred_series(sid)
-            if val is not None:
-                out[key] = {
-                    'price': round(float(val), 2),
-                    'change': None,
-                    'change_pct': '—',
-                }
-        except Exception:
-            continue
-    # Fallback to yfinance where FRED is unavailable (or FRED_KEY missing)
-    for key, ticker in [('gold', 'GC=F'), ('silver', 'SI=F'), ('wti', 'CL=F'), ('brent', 'BZ=F')]:
-        if key in out and out[key].get('price') is not None:
-            continue
-        try:
-            t = yf.Ticker(ticker)
-            fi = getattr(t, 'fast_info', None)
-            if fi is None:
+            t = yf.Ticker(sym)
+            fi = getattr(t, "fast_info", None)
+            last = getattr(fi, "last_price", None) if fi is not None else None
+            prev = getattr(fi, "previous_close", None) if fi is not None else None
+            hist = t.history(period="1y")
+            high_52w = float(hist["High"].max()) if not hist.empty else None
+            low_52w = float(hist["Low"].min()) if not hist.empty else None
+            if last is None and not hist.empty:
+                last = float(hist["Close"].iloc[-1])
+            if last is None:
                 continue
-            last = getattr(fi, 'last_price', None)
-            prev = getattr(fi, 'previous_close', None)
-            if last is not None:
-                last = float(last)
-                prev = float(prev) if prev is not None else last
-                change = last - prev
-                change_pct = (change / prev * 100) if prev and prev != 0 else 0
-                sign = '+' if change_pct >= 0 else ''
-                out[key] = {
-                    'price': round(last, 2),
-                    'change': round(change, 2),
-                    'change_pct': sign + str(round(change_pct, 2)) + '%',
-                }
-        except Exception:
+            last = float(last)
+            prev = float(prev) if prev is not None else last
+            change = last - prev
+            change_pct = (change / prev * 100.0) if prev and prev != 0 else 0.0
+            sign = "+" if change_pct >= 0 else ""
+            out[key] = {
+                "price": round(last, 2),
+                "change": round(change, 2),
+                "change_pct": f"{sign}{round(change_pct, 2)}%",
+                "high_52w": round(high_52w, 2) if high_52w is not None else None,
+                "low_52w": round(low_52w, 2) if low_52w is not None else None,
+            }
+        except Exception as e:
+            print("[COMMODITIES] error", sym, e)
             continue
     _cache_set(cache_key, out)
+    _touch_health("commodities", True, bool(out), None if out else "No commodity prices available")
     return out
 
 
@@ -537,7 +777,7 @@ _ECON_CALENDAR_FALLBACK = [
 
 
 def _build_economic_calendar():
-    """FRED release dates + static fallback. Cache 6 hours."""
+    """FRED release dates + static fallback. Cache 6 hours. Filters out past events and tags TODAY/SOON."""
     cache_key = 'economic_calendar'
     cached = _cache_get(cache_key, 6 * 3600)
     if cached is not None:
@@ -570,12 +810,166 @@ def _build_economic_calendar():
     if len(events) < 4:
         events = list(_ECON_CALENDAR_FALLBACK)
         source = 'scheduled'
-    events.sort(key=lambda x: x.get('date') or '')
-    result = {"events": events, "source": source, "last_updated": datetime.utcnow().isoformat()}
+    # Filter out past events and tag TODAY / SOON
+    today = date.today()
+    upcoming = []
+    for ev in events:
+        dstr = ev.get("date")
+        try:
+            d = datetime.strptime(dstr, "%Y-%m-%d").date()
+        except Exception:
+            upcoming.append(ev)
+            continue
+        if d < today:
+            continue
+        tag = ""
+        if d == today:
+            tag = "TODAY"
+        elif (d - today).days <= 3:
+            tag = "SOON"
+        ev2 = dict(ev)
+        if tag:
+            ev2["tag"] = tag
+        upcoming.append(ev2)
+    upcoming.sort(key=lambda x: x.get('date') or '')
+    result = {"events": upcoming[:10], "source": source, "last_updated": datetime.utcnow().isoformat()}
     if source == 'scheduled':
         result["last_verified"] = "2026-03-13"
     _cache_set(cache_key, result)
+    _touch_health("macro_calendar", True, bool(upcoming), None if upcoming else "No upcoming macro events")
     return result
+
+
+def _build_credit_spreads():
+    """
+    Investment grade and high-yield OAS from FRED.
+    IG: BAMLC0A0CM  (ICE BofA US Corporate Index Option-Adjusted Spread)
+    HY: BAMLH0A0HYM2 (ICE BofA US High Yield Index Option-Adjusted Spread)
+    Cache 60 minutes.
+    """
+    cache_key = "credit_spreads"
+    cached = _cache_get(cache_key, 60 * 60)
+    if cached is not None:
+        return cached
+    ig = _fetch_fred_series("BAMLC0A0CM")
+    hy = _fetch_fred_series("BAMLH0A0HYM2")
+    data = {
+        "ig_oas_bps": round(float(ig), 1) if ig is not None else None,
+        "hy_oas_bps": round(float(hy), 1) if hy is not None else None,
+        "last_updated": datetime.utcnow().isoformat(),
+    }
+    _cache_set(cache_key, data)
+    ok = data["ig_oas_bps"] is not None or data["hy_oas_bps"] is not None
+    _touch_health("credit_spreads", True, ok, None if ok else "Credit spreads unavailable")
+    return data
+
+
+def _build_market_regime():
+    """
+    Infer simple equity market regime from:
+    - SPX vs 200-day moving average (^GSPC)
+    - VIX level (^VIX)
+    - 2s10s spread using ^IRX (proxy for front-end) and ^TNX.
+    Returns regime, confidence, and commentary for banner.
+    Cached 30 minutes.
+    """
+    cache_key = "market_regime"
+    cached = _cache_get(cache_key, 30 * 60)
+    if cached is not None:
+        return cached
+    regime = "MID"
+    confidence = 50
+    signals = []
+    commentary = []
+    try:
+        spx = yf.Ticker("^GSPC")
+        hist = spx.history(period="1y")
+        price = float(hist["Close"].iloc[-1]) if not hist.empty else None
+        ma200 = float(hist["Close"].rolling(200).mean().iloc[-1]) if not hist.empty and len(hist) >= 200 else None
+    except Exception:
+        price = ma200 = None
+    try:
+        vix_fi = getattr(yf.Ticker("^VIX"), "fast_info", None)
+        vix = float(getattr(vix_fi, "last_price", None)) if vix_fi is not None and getattr(vix_fi, "last_price", None) is not None else None
+    except Exception:
+        vix = None
+    try:
+        irx_fi = getattr(yf.Ticker("^IRX"), "fast_info", None)
+        tnx_fi = getattr(yf.Ticker("^TNX"), "fast_info", None)
+        y2 = float(getattr(irx_fi, "last_price", None)) / 100.0 if irx_fi is not None and getattr(irx_fi, "last_price", None) is not None else None
+        y10 = float(getattr(tnx_fi, "last_price", None)) / 100.0 if tnx_fi is not None and getattr(tnx_fi, "last_price", None) is not None else None
+        spread_2s10s = (y10 - y2) if y2 is not None and y10 is not None else None
+    except Exception:
+        y2 = y10 = spread_2s10s = None
+
+    # Signals
+    bullish = 0
+    bearish = 0
+    if price is not None and ma200 is not None:
+        if price > ma200 * 1.03:
+            signals.append("SPX well above 200d")
+            bullish += 1
+        elif price < ma200 * 0.97:
+            signals.append("SPX below 200d")
+            bearish += 1
+        else:
+            signals.append("SPX near 200d")
+    if vix is not None:
+        if vix > 25:
+            signals.append("VIX elevated")
+            bearish += 1
+        elif vix < 15:
+            signals.append("VIX subdued")
+            bullish += 1
+        else:
+            signals.append("VIX in mid range")
+    if spread_2s10s is not None:
+        if spread_2s10s < 0:
+            signals.append("2s10s inverted")
+            bearish += 1
+        elif spread_2s10s > 0.5:
+            signals.append("2s10s steep")
+            bullish += 1
+        else:
+            signals.append("2s10s flat")
+
+    total = bullish + bearish or 1
+    bias = bullish - bearish
+    if bias >= 2:
+        regime = "EARLY"
+    elif bias <= -2:
+        regime = "RECESSION"
+    elif bias < 0:
+        regime = "LATE"
+    else:
+        regime = "MID"
+    confidence = int(min(95, max(40, abs(bias) / total * 100)))
+
+    if regime == "EARLY":
+        commentary.append("Cycle skewed toward early expansion: breadth improving, volatility contained, curve normalising.")
+    elif regime == "MID":
+        commentary.append("Macro mix consistent with mid-cycle: growth moderate, volatility anchored, valuations key driver.")
+    elif regime == "LATE":
+        commentary.append("Signals lean late-cycle: tighter policy, curve pressure and higher volatility warrant quality bias.")
+    else:
+        commentary.append("Risk indicators consistent with recessionary regime: curve inversion and volatility warrant defensive posture.")
+
+    data = {
+        "regime": regime,
+        "confidence": confidence,
+        "vix": vix,
+        "y2": y2,
+        "y10": y10,
+        "spread_2s10s": spread_2s10s,
+        "spx_price": price,
+        "spx_ma200": ma200,
+        "signals": signals,
+        "commentary": " ".join(commentary),
+        "last_updated": datetime.utcnow().isoformat(),
+    }
+    _cache_set(cache_key, data)
+    _touch_health("market_regime", True, True, None)
+    return data
 
 
 def _build_indicators():
@@ -641,6 +1035,7 @@ def _build_indicators():
     except Exception:
         pass
     _cache_set(cache_key, out)
+    _touch_health("indicators", True, True, None)
     return out
 
 
@@ -1175,6 +1570,18 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(stocks)
             return
 
+        # Overview economic calendar (legacy)
+        if path == '/api/economic-calendar':
+            data = _build_economic_calendar()
+            self._send_json(data)
+            return
+
+        # Macro calendar (filtered upcoming events)
+        if path == '/api/macro-calendar':
+            data = _build_economic_calendar()
+            self._send_json(data)
+            return
+
         # CNN Fear & Greed
         if path == '/api/feargreed':
             data = _calc_fear_greed()
@@ -1185,6 +1592,18 @@ class ProxyHandler(SimpleHTTPRequestHandler):
         if path == '/api/vix-term':
             data = _build_vix_term()
             self._send_json(data if data is not None else {'current': None})
+            return
+
+        # Credit spreads
+        if path == '/api/credit-spreads':
+            data = _build_credit_spreads()
+            self._send_json(data)
+            return
+
+        # Market regime banner
+        if path == '/api/market-regime':
+            data = _build_market_regime()
+            self._send_json(data)
             return
 
         # Earnings (yfinance; EODHD calendar not on free plan)
@@ -1402,9 +1821,13 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             return
 
         # Economic calendar (FRED + static fallback)
-        if path == '/api/economic-calendar':
-            data = _build_economic_calendar()
-            self._send_json(data)
+        # Dashboard health
+        if path == '/api/dashboard-health':
+            payload = {
+                "sections": _DASH_HEALTH,
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+            }
+            self._send_json(payload)
             return
 
         # Macro indicators (FRED + overview)
@@ -1755,6 +2178,29 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             except Exception as e:
                 self._send_json({'error': str(e)}, 500)
             return
+
+        if parsed.path == '/api/research-brief':
+            length = int(self.headers.get('Content-Length', 0))
+            try:
+                raw = self.rfile.read(length).decode() if length else '{}'
+                body = json.loads(raw or '{}')
+            except Exception:
+                body = {}
+            ticker = (body.get('ticker') or '').strip().upper()
+            if not ticker:
+                self._send_json({'error': 'ticker is required'}, 400)
+                return
+            # Simple cache to avoid hammering APIs for repeated requests
+            cache_key = f"research_brief_{ticker}"
+            cached = _cache_get(cache_key, 600)
+            if cached is not None:
+                self._send_json(cached)
+                return
+            brief = _build_research_brief(ticker)
+            _cache_set(cache_key, brief)
+            self._send_json(brief)
+            return
+
         self.send_error(404)
 
     def log_message(self, format, *args):

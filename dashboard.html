@@ -577,6 +577,7 @@
       <input class="search-input" id="searchInput" type="text" placeholder="Search any S&P 500, S&P 400, or NYSE stock... e.g. NVDA · AAPL · JPM · ASML" autocomplete="off"/>
     </div>
     <button class="search-btn" onclick="doSearch()">SEARCH</button>
+    <button class="search-btn" style="background:transparent;color:var(--text2);border:1px solid #27272a;" onclick="doResearchBrief()">RESEARCH BRIEF</button>
   </div>
   <div class="quick-tags">
     <span class="qtag-label">QUICK:</span>
@@ -672,12 +673,12 @@
   <div class="apex-banner-body">
     <div>
       <div class="apex-regime-kicker">Current Regime</div>
-      <div class="apex-regime-name">LATE CYCLE</div>
-      <div class="apex-confidence">72% <span style="font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--accent);">CONFIDENCE</span></div>
+      <div class="apex-regime-name" id="apexRegimeName">LATE CYCLE</div>
+      <div class="apex-confidence" id="apexRegimeConfidence">72% <span style="font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--accent);">CONFIDENCE</span></div>
     </div>
     <div>
       <div class="apex-mini-label">Confirming Signals</div>
-      <div class="apex-inline-list">
+      <div class="apex-inline-list" id="apexRegimeSignals">
         <div><span>Yield curve inverted</span> (2s10s &lt; 0)</div>
         <div><span>VIX elevated</span> (≈ 18–20)</div>
         <div><span>CPI sticky</span> above 2% target</div>
@@ -685,7 +686,7 @@
     </div>
     <div>
       <div class="apex-mini-label">What It Means For Allocation</div>
-      <div class="apex-subcopy">Favour quality, short-duration credit, and keep dry powder for dislocations rather than chasing high-beta cyclicals.</div>
+      <div class="apex-subcopy" id="apexRegimeText">Favour quality, short-duration credit, and keep dry powder for dislocations rather than chasing high-beta cyclicals.</div>
     </div>
   </div>
 </div>
@@ -1302,13 +1303,40 @@ async function refreshLiveData() {
   const euSymbols = ['ASML','SAP','LVMH','SHEL','HSBA','SIE','TTE','NESN'];
   const euApiSymbols = ['ASML.AS','SAP.DE','MC.PA','SHEL.L','HSBA.L','SIE.DE','TTE.PA','NESN.SW'];
   const tickerMap = [
-    { bar: 'SPX', api: 'SPY' }, { bar: 'NDX', api: 'QQQ' },
+    { bar: 'SPX', api: '^GSPC' }, { bar: 'NDX', api: '^NDX' },
     { bar: 'NVDA', api: 'NVDA' }, { bar: 'MSFT', api: 'MSFT' }, { bar: 'AAPL', api: 'AAPL' }, { bar: 'META', api: 'META' },
-    { bar: 'JPM', api: 'JPM' }, { bar: 'GS', api: 'GS' }, { bar: 'WTI', api: 'USO' }, { bar: 'GOLD', api: 'GLD' },
-    { bar: 'SILVER', api: 'SLV' }, { bar: 'BTC', api: 'IBIT' }, { bar: 'ASML', api: 'ASML' }
+    { bar: 'JPM', api: 'JPM' }, { bar: 'GS', api: 'GS' },
+    { bar: 'WTI', api: 'CL=F' }, { bar: 'GOLD', api: 'GC=F' }, { bar: 'SILVER', api: 'SI=F' },
+    { bar: 'BTC', api: 'BTC-USD' }, { bar: 'DXY', api: 'DX-Y.NYB' }, { bar: '10Y', api: '^TNX' },
+    { bar: 'VIX', api: '^VIX' }, { bar: 'EUR/USD', api: 'EURUSD=X' }
   ];
-  const commodityMap = [{ name: 'GOLD', api: 'GLD' }, { name: 'SILVER', api: 'SLV' }, { name: 'WTI CRUDE', api: 'USO' }, { name: 'BRENT', api: 'BNO' }];
-  const allApiSymbols = [...usSymbols, ...euApiSymbols, 'SPY', 'QQQ', 'GLD', 'SLV', 'USO', 'BNO', 'IBIT'];
+  const commodityMap = [
+    { name: 'GOLD', api: 'GC=F' },
+    { name: 'SILVER', api: 'SI=F' },
+    { name: 'WTI CRUDE', api: 'CL=F' },
+    { name: 'BRENT', api: 'BZ=F' }
+  ];
+  const allApiSymbols = [
+    ...usSymbols,
+    ...euApiSymbols,
+    '^GSPC',
+    '^NDX',
+    'NVDA',
+    'MSFT',
+    'AAPL',
+    'META',
+    'JPM',
+    'GS',
+    'CL=F',
+    'GC=F',
+    'SI=F',
+    'BZ=F',
+    'BTC-USD',
+    'DX-Y.NYB',
+    '^TNX',
+    '^VIX',
+    'EURUSD=X'
+  ];
   const quotes = await fetchProxyQuotes(allApiSymbols);
   const treasury = await fetchProxyTreasury();
 
@@ -1352,8 +1380,14 @@ async function refreshLiveData() {
     if (!m) return;
     const q = quotes[m.api];
     if (!q) return;
-    const isDollar = ['GOLD','WTI','BTC','NVDA','MSFT','AAPL','META','JPM','GS'].includes(t.s);
-    TD[i].v = isDollar ? (q.price >= 1000 ? '$' + q.price.toLocaleString('en-US',{maximumFractionDigits:0}) : '$' + q.price.toFixed(2)) : (q.price >= 100 ? q.price.toFixed(0) : q.price.toFixed(2));
+    const isDollar = ['GOLD','WTI','SILVER','BTC','NVDA','MSFT','AAPL','META','JPM','GS'].includes(t.s);
+    if (t.s === '10Y') {
+      TD[i].v = (q.price / 10).toFixed(2) + '%';
+    } else if (isDollar) {
+      TD[i].v = q.price >= 1000 ? '$' + q.price.toLocaleString('en-US',{maximumFractionDigits:0}) : '$' + q.price.toFixed(2);
+    } else {
+      TD[i].v = q.price >= 100 ? q.price.toFixed(0) : q.price.toFixed(2);
+    }
     TD[i].c = q.pct;
     TD[i].u = q.u ? 1 : 0;
   });
@@ -1741,6 +1775,31 @@ function renderSignalsPage(){
   document.getElementById('signalsWatchlist').innerHTML = WATCHLIST.map(w=>`<div class="metric-row"><span style="color:var(--accent)">${w.t}</span><span>${w.th}</span></div>`).join('');
   document.getElementById('portfolioRiskMetrics').innerHTML = PORTFOLIO_RISK.map(p=>`<div class="metric-row"><span>${p.m}</span><span>${p.v}</span></div>`).join('');
   document.getElementById('signalsPerfTracker').innerHTML = SIGNALS_FULL.map(s=>`<div class="metric-row"><span>${s.t}</span><span>Signal ${s.date}</span><span class="${s.ret>=0?'up':'down'}">${s.ret>=0?'+':''}${s.ret}%</span></div>`).join('');
+  refreshSignalsLive();
+}
+
+async function refreshSignalsLive() {
+  if (typeof SIGNALS_FULL === 'undefined') return;
+  const cards = document.querySelectorAll('.signal-card');
+  if (!cards.length) return;
+  await Promise.all(SIGNALS_FULL.map(async (s) => {
+    try {
+      const res = await fetch((window.APEX_PROXY || '') + '/api/search/stock?symbol=' + encodeURIComponent(s.t));
+      const data = await res.json();
+      const price = (data && data.A && typeof data.A.price === 'number') ? data.A.price : null;
+      if (!price) return;
+      const card = Array.from(cards).find(c => c.querySelector('.sc-ticker') && c.querySelector('.sc-ticker').textContent.trim() === s.t);
+      if (!card) return;
+      const meta = card.querySelector('.sc-meta');
+      const upsidePct = s.target ? ((s.target / price - 1) * 100) : null;
+      const rrText = s.rr ? s.rr : ((s.target && s.stop) ? (((s.target - price) / (price - s.stop))).toFixed(1) : '');
+      if (meta) {
+        meta.textContent = `Entry $${s.entry} · Now $${price.toFixed(2)} · Target $${s.target} · Stop $${s.stop} · Upside ${upsidePct != null ? (upsidePct>=0?'+':'') + upsidePct.toFixed(1) + '%' : '—'} · R/R ${rrText} · Size: 2-4%`;
+      }
+    } catch (e) {
+      // ignore per-ticker errors
+    }
+  }));
 }
 
 // SEARCH INDEX
@@ -1961,6 +2020,67 @@ function qs(q) {
 function doSearch() {
   var q = document.getElementById('searchInput').value.trim();
   if (q) resolveAndSearch(q);
+}
+
+async function doResearchBrief() {
+  var raw = (document.getElementById('searchInput').value || '').trim();
+  if (!raw) return;
+  // Use first token as ticker (e.g. "NVDA US" -> "NVDA")
+  var ticker = raw.split(/\s+/)[0].toUpperCase();
+  if (!ticker) return;
+  // Open stock search panel for this ticker
+  try {
+    await runStockSearch(ticker);
+  } catch (e) {
+    // ignore; we'll still try to show the brief panel
+  }
+  // Switch to AI tab in the stock search panel
+  try {
+    switchStockTab('ai');
+  } catch (e) {}
+  var aiEl = document.getElementById('stockTabAi');
+  if (aiEl) {
+    aiEl.innerHTML = '<div class="apex-note">Generating AI research brief…</div>';
+  }
+  try {
+    var resp = await fetch((window.APEX_PROXY || '') + '/api/research-brief', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker: ticker })
+    });
+    var data = await resp.json();
+    if (!aiEl) return;
+    if (!resp.ok || data.error) {
+      aiEl.innerHTML = '<div class="apex-note">Research brief failed: ' + (data.error || resp.status) + '</div>';
+      return;
+    }
+    var esc = function (s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+    var sentimentLabel = data.sentiment_label || 'Unknown';
+    var sentimentScore = (data.sentiment_score != null) ? Math.round(data.sentiment_score * 100) + '%' : '—';
+    var badgeClass = sentimentLabel === 'Bullish' ? 'green' : (sentimentLabel === 'Bearish' ? 'red' : 'yellow');
+    var metrics = data.metrics || {};
+    var briefText = data.brief_text || 'No AI brief available.';
+    var errors = data.errors || [];
+    aiEl.innerHTML =
+      '<div class="card" style="margin:0;">' +
+        '<div class="card-header">' +
+          '<span class="card-title">AI Research Brief</span>' +
+          '<span class="card-badge">Ticker: ' + esc(ticker) + '</span>' +
+        '</div>' +
+        '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">' +
+          '<span class="apex-badge ' + badgeClass + '">Sentiment: ' + esc(sentimentLabel) + ' · ' + esc(sentimentScore) + '</span>' +
+          (metrics.price != null ? '<span class="apex-badge cyan">Price: ' + esc(String(metrics.price)) + '</span>' : '') +
+          (metrics.pe != null ? '<span class="apex-badge cyan">P/E: ' + esc(String(metrics.pe)) + '</span>' : '') +
+          (metrics.revenue_growth != null ? '<span class="apex-badge cyan">Rev growth: ' + esc(String(metrics.revenue_growth)) + '</span>' : '') +
+        '</div>' +
+        '<div style="font-family:var(--mono);font-size:12px;white-space:pre-wrap;line-height:1.7;">' + esc(briefText) + '</div>' +
+        (errors.length ? '<div class="apex-note" style="margin-top:10px;">Some data unavailable: ' + esc(errors.join(' · ')) + '</div>' : '') +
+      '</div>';
+  } catch (e) {
+    if (aiEl) {
+      aiEl.innerHTML = '<div class="apex-note">Research brief failed: ' + e.message + '</div>';
+    }
+  }
 }
 
 // LIVE DROPDOWN + STOCK UNIVERSE AUTOCOMPLETE
@@ -2502,8 +2622,33 @@ function updateMacroRegimeFromOverview(data) {
   if (data.cpi_yoy != null) set('macroMsCpi', data.cpi_yoy.toFixed(1) + '%', null, 'var(--gold)');
   if (data.wti != null) set('macroMsWti', '$' + data.wti.toFixed(2), null, 'var(--oil)');
   if (data.gold != null) set('macroMsGold', '$' + Math.round(data.gold).toLocaleString(), null, 'var(--gold)');
-  if (data.vix != null) set('macroMsVix', data.vix.toFixed(1), null, 'var(--gold)');
+  if (data.vix != null) set('macroMsVix', data.vix.toFixed(1), null, 'var(--accent)');
 }
+async function refreshMarketRegimeBanner() {
+  try {
+    const res = await fetch((window.APEX_PROXY || '') + '/api/market-regime');
+    const data = await res.json();
+    if (!data) return;
+    const nameEl = document.getElementById('apexRegimeName');
+    const confEl = document.getElementById('apexRegimeConfidence');
+    const signalsEl = document.getElementById('apexRegimeSignals');
+    const textEl = document.getElementById('apexRegimeText');
+    if (nameEl && data.regime) {
+      const map = { EARLY:'EARLY CYCLE', MID:'MID CYCLE', LATE:'LATE CYCLE', RECESSION:'RECESSION RISK' };
+      nameEl.textContent = map[data.regime] || data.regime;
+    }
+    if (confEl && data.confidence != null) {
+      confEl.innerHTML = `${data.confidence}% <span style="font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--accent);">CONFIDENCE</span>`;
+    }
+    if (signalsEl && Array.isArray(data.signals)) {
+      signalsEl.innerHTML = data.signals.map(s => `<div><span>${s}</span></div>`).join('');
+    }
+    if (textEl && data.commentary) {
+      textEl.textContent = data.commentary;
+    }
+  } catch (e) {
+    // keep last known text
+  }
 async function renderOverviewExtensions() {
   apexRenderBreadth();
   apexRenderOverviewInsider();
@@ -2529,7 +2674,7 @@ async function apexLoadOptions(symbol) {
   return apexFetchCached('options', symbol, `/api/options?symbol=${encodeURIComponent(symbol)}`);
 }
 async function apexLoadEconomicCalendar() {
-  return apexFetchCached('economicCalendar', null, '/api/economic-calendar');
+  return apexFetchCached('economicCalendar', null, '/api/macro-calendar');
 }
 function apexComputeStockScore(stock, fundamentals) {
   const valueScore = Math.round((apexScoreInverse(fundamentals?.pe, 10, 40) + apexScoreInverse(fundamentals?.pb, 1.5, 8) + apexScoreInverse(fundamentals?.ev_ebitda, 8, 24)) / 3);
@@ -2968,11 +3113,12 @@ refreshLiveData = async function() {
   if (btn) { btn.classList.add('loading'); btn.textContent = '…'; }
   await apexOriginalRefreshLiveData();
   try {
-    const [overview, commodities, news, fearGreed] = await Promise.all([
+    const [overview, commodities, news, fearGreed, regime] = await Promise.all([
       apexFetchJSON('/api/overview').catch(() => null),
       apexFetchJSON('/api/commodities').catch(() => null),
       apexFetchJSON('/api/news').catch(() => null),
       apexFetchJSON('/api/feargreed').catch(() => null),
+      apexFetchJSON('/api/market-regime').catch(() => null),
     ]);
     updateMacroRegimeFromOverview(overview);
     if (commodities && typeof commodities.gold === 'object' && commodities.gold.price != null && typeof COMD !== 'undefined' && COMD.length >= 4) {
@@ -2984,6 +3130,7 @@ refreshLiveData = async function() {
       const commEl = document.getElementById('commods');
       if (commEl) commEl.innerHTML = COMD.map(x=>`<div class="com-row" onclick="qs('${x.q}')"><div class="com-icon">${x.icon}</div><div style="flex:1"><div class="com-name" style="color:${x.col}">${x.name}</div><div class="com-unit">${x.unit}</div><div class="com-bar"><div class="com-fill" style="width:${x.w}%;background:linear-gradient(90deg,${x.grad})"></div></div></div><div style="text-align:right"><div class="com-price" style="color:${x.col}">${x.price}</div><div class="${x.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${x.chg}</div><div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${x.range}</div></div></div>`).join('');
     }
+    if (regime) { try { refreshMarketRegimeBanner(); } catch (e) {} }
     if (news && news.articles) { window.APEX_NEWS_ARTICLES = news.articles.map(a => ({ title: a.title, url: a.url, source: a.source, time_ago: a.time_ago, category: a.category, hl: a.title })); renderNews(); }
     if (fearGreed != null) apexRenderFearGreed(fearGreed);
     apexRenderVixTerm(await apexFetchCached('vixTerm', null, '/api/vix-term'));
