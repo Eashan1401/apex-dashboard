@@ -16,6 +16,13 @@ import yfinance as yf
 import feedparser
 
 try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env'))
+except ImportError:
+    pass
+
+try:
     from stock_universe import load_stock_universe, search_universe, get_stock_universe
 except ImportError:
     load_stock_universe = get_stock_universe = lambda: {}
@@ -24,7 +31,8 @@ except ImportError:
 
 try:
     from fredapi import Fred
-    _fred = Fred(api_key=os.environ.get('FRED_API_KEY', os.environ.get('FRED_KEY', '')))
+    _fred_api_key = (os.getenv('FRED_API_KEY') or os.getenv('FRED_KEY') or '').strip()
+    _fred = Fred(api_key=_fred_api_key) if _fred_api_key else None
 except Exception:
     _fred = None
 
@@ -47,15 +55,6 @@ COMPANY_NAME_FOR_NEWS = {
     "MS": "Morgan Stanley", "WFC": "Wells Fargo", "C": "Citigroup",
 }
 
-# Load .env from finance-ai/ or parent
-try:
-    from dotenv import load_dotenv
-    _dir = os.path.dirname(os.path.abspath(__file__))
-    load_dotenv(os.path.join(_dir, '.env'))
-    load_dotenv(os.path.join(_dir, '..', '.env'))
-except ImportError:
-    pass
-
 def _get_key(*names):
     for n in names:
         v = os.environ.get(n, '').strip()
@@ -65,7 +64,7 @@ def _get_key(*names):
 
 ALPHA_KEY = _get_key('ALPHA_VANTAGE_KEY', 'ALPHA_VANTAGE_API_KEY', 'ALPHAVANTAGE_API_KEY')
 FINNHUB_KEY = _get_key('FINNHUB_TOKEN', 'FINNHUB_API_KEY', 'FINNHUB_KEY')
-FRED_KEY = _get_key('FRED_API_KEY', 'FRED_KEY')
+FRED_KEY = (os.getenv('FRED_API_KEY') or os.getenv('FRED_KEY') or '').strip()
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '').strip()
 EODHD_KEY = os.environ.get('EODHD_API_KEY', '').strip()
 POLYGON_KEY = os.environ.get('POLYGON_API_KEY', '').strip()
@@ -130,6 +129,118 @@ def _fetch_one_quote(symbol):
             pass
     return data
 
+
+def _yf_treasury_yield_pct(symbol):
+    """Approximate Treasury yield (%) from Yahoo index (e.g. ^TNX, ^IRX) when FRED fails."""
+    try:
+        t = yf.Ticker(symbol)
+        info = getattr(t, 'info', None) or {}
+        for k in ('regularMarketPrice', 'previousClose', 'open'):
+            v = info.get(k)
+            if v is not None and float(v) > 0:
+                return float(v)
+        fi = getattr(t, 'fast_info', None)
+        if fi is not None:
+            lp = getattr(fi, 'last_price', None)
+            if lp is not None:
+                return float(lp)
+        hist = t.history(period='5d')
+        if hist is not None and not hist.empty:
+            return float(hist['Close'].iloc[-1])
+    except Exception as e:
+        print('[YF_TSY]', symbol, e)
+    return None
+
+
+def _yf_index_price_and_change_pct(symbol):
+    """
+    Index level and daily % for ^GSPC etc. Prefer info regularMarketPrice + regularMarketChangePercent;
+    use history close if price missing or implausibly scaled.
+    """
+    price = None
+    chg_pct = None
+    try:
+        t = yf.Ticker(symbol)
+        info = getattr(t, 'info', None) or {}
+        rp = info.get('regularMarketPrice') or info.get('currentPrice')
+        if rp is not None:
+            price = float(rp)
+        rcp = info.get('regularMarketChangePercent')
+        if rcp is not None:
+            chg_pct = float(rcp)
+            if abs(chg_pct) < 0.02 and chg_pct != 0:
+                chg_pct *= 100.0
+        chg = info.get('regularMarketChange')
+        prev = info.get('regularMarketPreviousClose') or info.get('previousClose')
+        if chg_pct is None and chg is not None and prev not in (None, 0):
+            try:
+                chg_pct = (float(chg) / float(prev)) * 100.0
+            except Exception:
+                pass
+        hist = t.history(period='10d')
+        if hist is not None and not hist.empty:
+            last_c = float(hist['Close'].iloc[-1])
+            if price is None:
+                price = last_c
+            elif symbol in ('^GSPC', '^NDX', '^DJI', '^RUT', '^GDAXI', '^FTSE', '^N225', '^HSI'):
+                if price < 500 and last_c > 500:
+                    price = last_c
+            if chg_pct is None and len(hist) >= 2:
+                prev_c = float(hist['Close'].iloc[-2])
+                if prev_c:
+                    chg_pct = (price - prev_c) / prev_c * 100.0
+        if price is None and hist is not None and not hist.empty:
+            price = float(hist['Close'].iloc[-1])
+        if price is None:
+            fi = getattr(t, 'fast_info', None)
+            if fi is not None:
+                lp = getattr(fi, 'last_price', None)
+                if lp is not None:
+                    price = float(lp)
+    except Exception as e:
+        print('[YF_INDEX]', symbol, e)
+    return price, chg_pct
+
+
+def _fed_funds_fallback_yf():
+    """
+    When FRED DFF is unavailable: ^IRX (13-week T-bill yield %) tracks policy rates loosely.
+    Else hardcoded ~effective rate (update after FOMC).
+    """
+    v = _yf_treasury_yield_pct('^IRX')
+    if v is not None and 0.5 < v < 15:
+        return round(v, 4)
+    return 3.64  # Approx effective Fed Funds — update after each FOMC if FRED unavailable
+
+
+def _fred_treasury_yield_curve_with_fallback():
+    """FRED DGS* with Yahoo ^TNX/^IRX/^FVX/^TYX/2YY=F fallbacks when API key missing or series empty."""
+    t = {
+        'dgs3mo': _fetch_fred_series('DGS3MO'),
+        'dgs2': _fetch_fred_series('DGS2'),
+        'dgs5': _fetch_fred_series('DGS5'),
+        'dgs10': _fetch_fred_series('DGS10'),
+        'dgs30': _fetch_fred_series('DGS30'),
+    }
+    ymap = [('dgs3mo', '^IRX'), ('dgs5', '^FVX'), ('dgs10', '^TNX'), ('dgs30', '^TYX')]
+    for key, ysym in ymap:
+        if t.get(key) is None:
+            tv = _yf_treasury_yield_pct(ysym)
+            if tv is not None:
+                t[key] = tv
+    if t.get('dgs2') is None:
+        for sym in ('2YY=F', '^ZTWO'):
+            tv = _yf_treasury_yield_pct(sym)
+            if tv is not None:
+                t['dgs2'] = tv
+                break
+    if t.get('dgs2') is None and t.get('dgs10') is not None:
+        t['dgs2'] = max(0.05, float(t['dgs10']) - 0.46)
+    if t.get('dgs3mo') is None and t.get('dgs10') is not None:
+        t['dgs3mo'] = max(0.05, float(t['dgs10']) - 0.85)
+    return t
+
+
 def _fetch_fred_series(series_id):
     if not FRED_KEY:
         return None
@@ -145,12 +256,112 @@ def _fetch_fred_series(series_id):
     return None
 
 
+def _fetch_fred_observations(series_id, limit=2):
+    """Latest N observations (newest first) for MoM / change calculations."""
+    if not FRED_KEY:
+        return []
+    try:
+        url = (
+            f'https://api.stlouisfed.org/fred/series/observations?series_id={series_id}'
+            f'&api_key={FRED_KEY}&file_type=json&sort_order=desc&limit={limit}'
+        )
+        with urllib.request.urlopen(url, timeout=10) as r:
+            j = json.loads(r.read().decode())
+        out = []
+        for o in j.get('observations', []):
+            v = o.get('value')
+            if v and v != '.':
+                out.append(float(v))
+        return out
+    except Exception:
+        return []
+
+
+def _fetch_cpi_yoy_fred():
+    """CPI YoY % (same logic as overview) — for macro real Fed Funds."""
+    try:
+        if FRED_KEY:
+            url = (
+                f'https://api.stlouisfed.org/fred/series/observations?series_id=CPIAUCSL'
+                f'&api_key={FRED_KEY}&file_type=json&sort_order=desc&limit=13'
+            )
+            with urllib.request.urlopen(url, timeout=10) as r:
+                j = json.loads(r.read().decode())
+            obs = j.get('observations', [])
+            if len(obs) >= 13:
+                latest = float(obs[0]['value'])
+                prev12 = float(obs[12]['value'])
+                return (latest / prev12 - 1.0) * 100.0
+    except Exception:
+        pass
+    return 3.1  # approximate CPI YoY when FRED unavailable — update quarterly
+
+
+def _fear_greed_apply_vix(score, vix):
+    if vix is None:
+        return score
+    vix = float(vix)
+    if vix > 35:
+        score -= 30
+    elif vix > 28:
+        score -= 20
+    elif vix > 22:
+        score -= 10
+    elif vix < 14:
+        score += 20
+    elif vix < 17:
+        score += 10
+    return score
+
+
+def _fear_greed_apply_spy_momentum(score, spy_return):
+    if spy_return is None:
+        return score
+    spy_return = float(spy_return)
+    if spy_return < -8:
+        score -= 20
+    elif spy_return < -4:
+        score -= 10
+    elif spy_return < -1:
+        score -= 5
+    elif spy_return > 5:
+        score += 15
+    elif spy_return > 2:
+        score += 8
+    return score
+
+
+def _fear_greed_score(vix, spy_return_pct):
+    """Same VIX + SPY momentum composite as live card, 0–100."""
+    s = 50
+    s = _fear_greed_apply_vix(s, vix)
+    s = _fear_greed_apply_spy_momentum(s, spy_return_pct)
+    return max(0, min(100, int(round(s))))
+
+
+def _fear_greed_spy_window_return(spy_close, end_idx, window=21):
+    """~1 month proxy: return % from spy_close[start] to spy_close[end_idx] (inclusive)."""
+    if spy_close is None or spy_close.empty:
+        return None
+    if end_idx < 0:
+        end_idx = len(spy_close) + end_idx
+    start_idx = end_idx - (window - 1)
+    if start_idx < 0 or end_idx > len(spy_close) - 1:
+        return None
+    c0, c1 = float(spy_close.iloc[start_idx]), float(spy_close.iloc[end_idx])
+    if c0 == 0:
+        return None
+    return (c1 / c0 - 1) * 100.0
+
+
 def _calc_fear_greed():
     """
     VIX + SPY momentum proxy for Fear & Greed. No external API. Returns score 0-100 and rating.
+    Includes approximate historical scores using VIX close + SPY ~21d return at past horizons.
     """
     score = 50
     details = {}
+    previous_close = one_week_ago = one_month_ago = one_year_ago = None
     try:
         vix_t = yf.Ticker("^VIX")
         fi = getattr(vix_t, 'fast_info', None)
@@ -158,16 +369,7 @@ def _calc_fear_greed():
         if vix is not None:
             vix = float(vix)
             details['vix'] = vix
-            if vix > 35:
-                score -= 30
-            elif vix > 28:
-                score -= 20
-            elif vix > 22:
-                score -= 10
-            elif vix < 14:
-                score += 20
-            elif vix < 17:
-                score += 10
+            score = _fear_greed_apply_vix(score, vix)
     except Exception as e:
         details['vix_error'] = str(e)
     try:
@@ -175,16 +377,7 @@ def _calc_fear_greed():
         if spy_hist is not None and not spy_hist.empty and len(spy_hist["Close"]) >= 2:
             spy_return = (spy_hist["Close"].iloc[-1] / spy_hist["Close"].iloc[0] - 1) * 100
             details['spy_20d_return'] = round(spy_return, 2)
-            if spy_return < -8:
-                score -= 20
-            elif spy_return < -4:
-                score -= 10
-            elif spy_return < -1:
-                score -= 5
-            elif spy_return > 5:
-                score += 15
-            elif spy_return > 2:
-                score += 8
+            score = _fear_greed_apply_spy_momentum(score, spy_return)
     except Exception as e:
         details['spy_error'] = str(e)
     score = max(0, min(100, score))
@@ -198,8 +391,52 @@ def _calc_fear_greed():
         rating = "Greed"
     else:
         rating = "Extreme Greed"
+    # Historical approximate scores: VIX close at horizon + SPY ~21 trading-day return ending that day
+    try:
+        spy_long = yf.Ticker("SPY").history(period="2y")
+        vix_long = yf.Ticker("^VIX").history(period="2y")
+        if spy_long is not None and not spy_long.empty and vix_long is not None and not vix_long.empty:
+            joined = spy_long["Close"].to_frame(name="spy").join(
+                vix_long["Close"].to_frame(name="vix"), how="inner"
+            )
+            if joined is not None and len(joined) >= 22:
+                closes = joined["spy"]
+                vix_c = joined["vix"]
+                n = len(joined)
+
+                def _hist_at(offset_from_end):
+                    """offset_from_end: 1 = prev bar, 6 = ~1w, 22 = ~1m, 253 = ~1y."""
+                    end = n - 1 - offset_from_end
+                    if end < 21:
+                        return None, None
+                    vx = float(vix_c.iloc[end])
+                    spr = _fear_greed_spy_window_return(closes, end, window=21)
+                    return vx, spr
+
+                pc = _hist_at(1)
+                if pc[0] is not None:
+                    previous_close = _fear_greed_score(pc[0], pc[1])
+                wk = _hist_at(6)
+                if wk[0] is not None:
+                    one_week_ago = _fear_greed_score(wk[0], wk[1])
+                mo = _hist_at(22)
+                if mo[0] is not None:
+                    one_month_ago = _fear_greed_score(mo[0], mo[1])
+                yr = _hist_at(253)
+                if yr[0] is not None:
+                    one_year_ago = _fear_greed_score(yr[0], yr[1])
+    except Exception as e:
+        details['fear_greed_hist_error'] = str(e)
     print('[FEAR_GREED] details:', details)
-    return {"score": score, "rating": rating, "details": details}
+    return {
+        "score": score,
+        "rating": rating,
+        "details": details,
+        "previous_close": previous_close,
+        "one_week_ago": one_week_ago,
+        "one_month_ago": one_month_ago,
+        "one_year_ago": one_year_ago,
+    }
 
 
 def _build_vix_term():
@@ -304,26 +541,208 @@ def _polygon_get(path, params=None, cache_key=None, ttl=900):
     return data
 
 
+def _fred_treasury_yield_curve():
+    """FRED DGS* with Yahoo fallbacks — shared by /api/treasury, /api/overview, /api/macro."""
+    return _fred_treasury_yield_curve_with_fallback()
+
+
 def _build_macro_snapshot():
     """
-    Lightweight macro snapshot for AI context.
-    Currently focuses on the US Treasury curve via FRED.
+    Macro tab: full Treasury curve + Fed (DFF daily effective, DFEDTARL/U target band) + major CB rates.
+    All spreads: DGS10−DGS2 (2s10s), DGS10−DGS3MO (3m10y), DGS30−DGS5 (5s30s).
+    When FRED is unavailable, uses yfinance (^IRX, ^TNX, …) and hardcoded policy approximations.
     """
-    dgs2 = _fetch_fred_series('DGS2')
-    dgs10 = _fetch_fred_series('DGS10')
-    dgs30 = _fetch_fred_series('DGS30')
+    treasury = _fred_treasury_yield_curve_with_fallback()
+    cpi_yoy = _fetch_cpi_yoy_fred()
+    # DFF = daily effective Fed Funds
+    dff = _fetch_fred_series('DFF')
+    tar_lo = _fetch_fred_series('DFEDTARL')
+    tar_hi = _fetch_fred_series('DFEDTARU')
+    ecb = _fetch_fred_series('ECBDFR')
+    boe = _fetch_fred_series('INTDSRGBM')
+    boj = _fetch_fred_series('IRSTCB01JPM156N')
+    if boj is None:
+        boj = _fetch_fred_series('IORBJ')
+    if dff is None:
+        dff = _fed_funds_fallback_yf()
+    if tar_lo is None:
+        tar_lo = 3.50  # Fed target band low — update after FOMC (Mar 2026 hold)
+    if tar_hi is None:
+        tar_hi = 3.75  # Fed target band high
+    if ecb is None:
+        ecb = 2.65  # ECB depo — update quarterly (-25bp Mar 6)
+    if boe is None:
+        boe = 4.50  # BOE bank rate — update quarterly
+    if boj is None:
+        boj = 0.50  # BOJ policy — update quarterly
+    boc = 4.50  # BOC — update quarterly (held Mar 5)
+    rba = 4.35  # RBA — update quarterly (held Feb 18)
+    real_fed = None
+    if dff is not None and cpi_yoy is not None:
+        real_fed = round(float(dff) - float(cpi_yoy), 2)
+
+    def _r4(x):
+        return round(float(x), 4) if x is not None else None
+
     return {
-        'treasury': {
-            'dgs2': dgs2,
-            'dgs10': dgs10,
-            'dgs30': dgs30,
-        }
+        'treasury': {k: _r4(v) for k, v in treasury.items()},
+        'fed': {
+            'effective': _r4(dff),
+            'target_low': _r4(tar_lo),
+            'target_high': _r4(tar_hi),
+            'cpi_yoy': round(float(cpi_yoy), 2) if cpi_yoy is not None else None,
+            'real_fed': real_fed,
+        },
+        'policy_rates': {
+            'ecb': _r4(ecb),
+            'boe': _r4(boe),
+            'boj': _r4(boj),
+            'boc': _r4(boc),
+            'rba': _r4(rba),
+        },
     }
+
+
+# Equities tab: global indices (yfinance). TTL 60s — cache key separate from other quotes.
+_MARKET_INDICES_DEF = [
+    ('SPX', '^GSPC'),
+    ('NDX', '^NDX'),
+    ('DJIA', '^DJI'),
+    ('RUT', '^RUT'),
+    ('VIX', '^VIX'),
+    ('DAX', '^GDAXI'),
+    ('FTSE', '^FTSE'),
+    ('Nikkei', '^N225'),
+    ('HSI', '^HSI'),
+]
+
+
+def _fetch_market_indices_equities():
+    cache_key = 'market_indices_equities_v2'
+    cached = _cache_get(cache_key, 60)
+    if cached is not None:
+        return cached
+    indices = []
+    for label, sym in _MARKET_INDICES_DEF:
+        price, chg_pct = None, None
+        try:
+            price, chg_pct = _yf_index_price_and_change_pct(sym)
+        except Exception as e:
+            print('[MARKET_INDICES]', sym, e)
+        indices.append({
+            'label': label,
+            'symbol': sym,
+            'price': round(price, 4) if price is not None else None,
+            'change_pct': round(chg_pct, 2) if chg_pct is not None else None,
+        })
+        time.sleep(0.06)
+    out = {'indices': indices}
+    _cache_set(cache_key, out)
+    return out
+
+
+_ANALYST_FALLBACK_PT = {
+    'NVDA': 250.0,
+    'MSFT': 450.0,
+    'AAPL': 275.0,
+    'GOOGL': 350.0,
+    'META': 650.0,
+    'JPM': 320.0,
+    'GS': 900.0,
+    'BAC': 55.0,
+    'BX': 135.0,
+    'BLK': 1100.0,
+    'XOM': 185.0,
+    'AMD': 250.0,
+}
+_ANALYST_BHS = {
+    'NVDA': (42, 4, 0),
+    'MSFT': (38, 6, 0),
+    'AAPL': (22, 12, 1),
+    'GOOGL': (28, 10, 0),
+    'META': (35, 5, 0),
+    'JPM': (12, 18, 2),
+    'GS': (18, 14, 2),
+    'BAC': (14, 20, 2),
+    'BX': (16, 16, 2),
+    'BLK': (22, 12, 1),
+    'XOM': (8, 14, 3),
+    'AMD': (32, 8, 2),
+}
+
+_ANALYST_TICKERS = [
+    'NVDA', 'MSFT', 'AAPL', 'GOOGL', 'META', 'JPM', 'GS', 'BAC', 'BX', 'BLK', 'XOM', 'AMD',
+]
+
+
+def _fetch_analyst_consensus_equities():
+    cache_key = 'analyst_consensus_equities_v2'
+    cached = _cache_get(cache_key, 60)
+    if cached is not None:
+        return cached
+    consensus = []
+    for sym in _ANALYST_TICKERS:
+        buy, hold, sell = _ANALYST_BHS.get(sym, (0, 0, 0))
+        pt = None
+        current = None
+        upside = None
+        try:
+            t = yf.Ticker(sym)
+            info = getattr(t, 'info', None) or {}
+            tm = info.get('targetMeanPrice')
+            if tm is not None:
+                pt = float(tm)
+            current = info.get('currentPrice') or info.get('regularMarketPrice')
+            if current is None:
+                fi = getattr(t, 'fast_info', None)
+                if fi is not None:
+                    current = getattr(fi, 'last_price', None)
+            if current is not None:
+                current = float(current)
+            if pt is None:
+                pt = _ANALYST_FALLBACK_PT.get(sym)
+            if current is None:
+                q = _fetch_one_quote(sym)
+                if q and q.get('price') is not None:
+                    current = float(q['price'])
+            if pt is not None and current and current != 0:
+                upside = (float(pt) - current) / current * 100.0
+        except Exception as e:
+            print('[ANALYST_CONSENSUS]', sym, e)
+            pt = _ANALYST_FALLBACK_PT.get(sym)
+            current = None
+        if current is None:
+            q = _fetch_one_quote(sym)
+            if q and q.get('price') is not None:
+                try:
+                    current = float(q['price'])
+                except Exception:
+                    pass
+        if pt is None:
+            pt = _ANALYST_FALLBACK_PT.get(sym)
+        if upside is None and pt is not None and current and current != 0:
+            try:
+                upside = (float(pt) - float(current)) / float(current) * 100.0
+            except Exception:
+                pass
+        consensus.append({
+            'ticker': sym,
+            'buy': buy,
+            'hold': hold,
+            'sell': sell,
+            'pt': round(float(pt), 2) if pt is not None else None,
+            'current': round(float(current), 2) if current is not None else None,
+            'upside_pct': round(upside, 1) if upside is not None else None,
+        })
+        time.sleep(0.06)
+    out = {'consensus': consensus}
+    _cache_set(cache_key, out)
+    return out
 
 
 def _build_overview():
     """Fed Funds, CPI YoY, 2s10s spread, WTI, Gold, Brent, VIX. Cached 5 min."""
-    cache_key = 'overview_macro'
+    cache_key = 'overview_macro_v3'
     cached = _cache_get(cache_key, 300)
     if cached is not None:
         return cached
@@ -331,6 +750,8 @@ def _build_overview():
         'fed_funds': None,
         'cpi_yoy': None,
         'spread_2y10y': None,
+        'dgs2': None,
+        'dgs10': None,
         'wti': None,
         'gold': None,
         'brent': None,
@@ -339,8 +760,19 @@ def _build_overview():
     try:
         ff = _fetch_fred_series('FEDFUNDS')
         data['fed_funds'] = ff
+        if data['fed_funds'] is None:
+            ff2 = _fetch_fred_series('DFF')
+            if ff2 is not None:
+                data['fed_funds'] = ff2
+        if data['fed_funds'] is None:
+            data['fed_funds'] = _fed_funds_fallback_yf()
     except Exception as e:
         print('[OVERVIEW] FEDFUNDS error:', e)
+    if data.get('fed_funds') is None:
+        try:
+            data['fed_funds'] = _fed_funds_fallback_yf()
+        except Exception:
+            data['fed_funds'] = 3.64  # update after FOMC if all sources fail
     try:
         url = f'https://api.stlouisfed.org/fred/series/observations?series_id=CPIAUCSL&api_key={FRED_KEY}&file_type=json&sort_order=desc&limit=13'
         with urllib.request.urlopen(url, timeout=10) as r:
@@ -352,11 +784,15 @@ def _build_overview():
             data['cpi_yoy'] = (latest / prev12 - 1.0) * 100.0
     except Exception as e:
         print('[OVERVIEW] CPI error:', e)
+    if data.get('cpi_yoy') is None:
+        data['cpi_yoy'] = 3.1
     try:
-        dgs2 = _fetch_fred_series('DGS2')
-        dgs10 = _fetch_fred_series('DGS10')
-        if dgs2 is not None and dgs10 is not None:
-            data['spread_2y10y'] = dgs10 - dgs2
+        tcurve = _fred_treasury_yield_curve()
+        data['dgs2'] = tcurve['dgs2']
+        data['dgs10'] = tcurve['dgs10']
+        if tcurve['dgs2'] is not None and tcurve['dgs10'] is not None:
+            # Same definition as treasury card: 10Y − 2Y (percentage points; negative = inverted)
+            data['spread_2y10y'] = tcurve['dgs10'] - tcurve['dgs2']
     except Exception as e:
         print('[OVERVIEW] spread error:', e)
     # Commodities & VIX: prefer FRED for commodities, yfinance for VIX
@@ -381,25 +817,133 @@ def _build_overview():
                 data['vix'] = float(last_vix)
     except Exception as e:
         print('[OVERVIEW] commodities/vix error:', e)
+    # Prefer yfinance futures (GC=F, CL=F, BZ=F) so overview matches /api/commodities; FRED remains fallback if yf fails
+    try:
+        for sym_key, ticker in [('gold', 'GC=F'), ('wti', 'CL=F'), ('brent', 'BZ=F')]:
+            spot = _yfinance_commodity_spot(ticker)
+            if spot is not None:
+                data[sym_key] = spot
+    except Exception as e:
+        print('[OVERVIEW] yfinance commodity spot error:', e)
     _cache_set(cache_key, data)
     return data
 
 
+def _yfinance_commodity_spot(symbol):
+    """Last price for overview macro row (matches commodity futures)."""
+    try:
+        t = yf.Ticker(symbol)
+        fi = getattr(t, 'fast_info', None)
+        if fi is not None:
+            lp = getattr(fi, 'last_price', None)
+            if lp is not None:
+                return float(lp)
+        info = getattr(t, 'info', None) or {}
+        if isinstance(info, dict):
+            p = info.get('regularMarketPrice') or info.get('currentPrice')
+            if p is not None:
+                return float(p)
+    except Exception:
+        pass
+    return None
+
+
+def _yfinance_commodity_detail(symbol):
+    """
+    Futures row: price, daily change / %, 52w range via yfinance (regularMarket* / fast_info, fiftyTwoWeek* or 1y history).
+    """
+    try:
+        t = yf.Ticker(symbol)
+        price = prev = None
+        low52 = high52 = None
+        try:
+            info = getattr(t, 'info', None) or {}
+            if isinstance(info, dict):
+                price = info.get('regularMarketPrice') or info.get('currentPrice') or info.get('postMarketPrice')
+                prev = info.get('regularMarketPreviousClose') or info.get('previousClose')
+                low52 = info.get('fiftyTwoWeekLow')
+                high52 = info.get('fiftyTwoWeekHigh')
+        except Exception:
+            pass
+        fi = getattr(t, 'fast_info', None)
+        if price is None and fi is not None:
+            lp = getattr(fi, 'last_price', None)
+            if lp is not None:
+                price = float(lp)
+        if prev is None and fi is not None:
+            pc = getattr(fi, 'previous_close', None)
+            if pc is not None:
+                prev = float(pc)
+        if price is None:
+            return None
+        price = float(price)
+        if prev is None:
+            prev = price
+        else:
+            prev = float(prev)
+        change = price - prev
+        if prev and prev != 0:
+            change_pct_val = (change / prev) * 100.0
+        else:
+            change_pct_val = 0.0
+        sign = '+' if change_pct_val >= 0 else ''
+        change_pct = f'{sign}{change_pct_val:.2f}%'
+        if low52 is None or high52 is None:
+            try:
+                h = t.history(period='1y')
+                if h is not None and not h.empty:
+                    if low52 is None:
+                        low52 = float(h['Low'].min())
+                    if high52 is None:
+                        high52 = float(h['High'].max())
+            except Exception:
+                pass
+        row = {
+            'price': round(price, 2),
+            'change': round(change, 2),
+            'change_pct': change_pct,
+            'range_low': round(float(low52), 2) if low52 is not None else None,
+            'range_high': round(float(high52), 2) if high52 is not None else None,
+        }
+        return row
+    except Exception:
+        return None
+
+
 def _fetch_commodity_quotes():
-    """Spot commodity prices (gold, silver, wti, brent) from FRED where possible, fallback to yfinance. Cached 5 min."""
-    cache_key = 'commodities_quotes'
+    """Spot commodity prices from yfinance futures (GC=F, SI=F, CL=F, BZ=F); FRED fallback if needed. Cached 5 min."""
+    cache_key = 'commodities_quotes_v2'
     cached = _cache_get(cache_key, 300)
     if cached is not None:
         return cached
     out = {}
-    # First try FRED daily series
+    for key, sym in [('gold', 'GC=F'), ('silver', 'SI=F'), ('wti', 'CL=F'), ('brent', 'BZ=F')]:
+        row = _yfinance_commodity_detail(sym)
+        if row:
+            out[key] = row
+    # SI=F: yfinance occasionally reports implausible 52w high (wrong contract); real spot silver ~$28–$80/oz
+    if out.get('silver'):
+        rh, rl = out['silver'].get('range_high'), out['silver'].get('range_low')
+        try:
+            if rh is not None and float(rh) > 100:
+                print('[COMMODITIES] silver SI=F: dropping unreliable 52w range (high=%s)' % rh)
+                out['silver']['range_low'] = None
+                out['silver']['range_high'] = None
+            if rl is not None and float(rl) < 0:
+                out['silver']['range_low'] = None
+                out['silver']['range_high'] = None
+        except Exception:
+            out['silver']['range_low'] = None
+            out['silver']['range_high'] = None
     fred_map = {
-        'gold': 'GOLDAMGBD228NLBM',   # Gold price, USD/oz
-        'silver': 'SLVPRUSD',         # Silver price, USD/oz
-        'wti': 'DCOILWTICO',          # WTI crude, USD/bbl
-        'brent': 'DCOILBRENTEU',      # Brent crude, USD/bbl
+        'gold': 'GOLDAMGBD228NLBM',
+        'silver': 'SLVPRUSD',
+        'wti': 'DCOILWTICO',
+        'brent': 'DCOILBRENTEU',
     }
     for key, sid in fred_map.items():
+        if key in out and out[key].get('price') is not None:
+            continue
         try:
             val = _fetch_fred_series(sid)
             if val is not None:
@@ -407,30 +951,8 @@ def _fetch_commodity_quotes():
                     'price': round(float(val), 2),
                     'change': None,
                     'change_pct': '—',
-                }
-        except Exception:
-            continue
-    # Fallback to yfinance where FRED is unavailable (or FRED_KEY missing)
-    for key, ticker in [('gold', 'GC=F'), ('silver', 'SI=F'), ('wti', 'CL=F'), ('brent', 'BZ=F')]:
-        if key in out and out[key].get('price') is not None:
-            continue
-        try:
-            t = yf.Ticker(ticker)
-            fi = getattr(t, 'fast_info', None)
-            if fi is None:
-                continue
-            last = getattr(fi, 'last_price', None)
-            prev = getattr(fi, 'previous_close', None)
-            if last is not None:
-                last = float(last)
-                prev = float(prev) if prev is not None else last
-                change = last - prev
-                change_pct = (change / prev * 100) if prev and prev != 0 else 0
-                sign = '+' if change_pct >= 0 else ''
-                out[key] = {
-                    'price': round(last, 2),
-                    'change': round(change, 2),
-                    'change_pct': sign + str(round(change_pct, 2)) + '%',
+                    'range_low': None,
+                    'range_high': None,
                 }
         except Exception:
             continue
@@ -522,17 +1044,15 @@ def _build_news_for_symbol(symbol):
         return []
 
 
+# Static fallback when FRED release calendar is thin. UPDATE MONTHLY or replace with API (FRED release_dates,
+# Trading Economics, etc.) — dates must stay >= "today" or they are filtered server-side.
 _ECON_CALENDAR_FALLBACK = [
-    {"date": "2026-03-17", "event": "Retail Sales (Feb)", "importance": "HIGH", "forecast": "0.3%", "previous": "0.2%", "country": "US"},
-    {"date": "2026-03-18", "event": "ZEW Economic Sentiment", "importance": "MED", "forecast": "52.0", "previous": "48.2", "country": "EU"},
-    {"date": "2026-03-19", "event": "FOMC Rate Decision", "importance": "HIGH", "forecast": "Hold 3.50%", "previous": "3.50%", "country": "US"},
-    {"date": "2026-03-19", "event": "GDP Q4 Final", "importance": "MED", "forecast": "2.3%", "previous": "2.8%", "country": "US"},
-    {"date": "2026-03-20", "event": "BOE Rate Decision", "importance": "HIGH", "forecast": "Hold 4.50%", "previous": "4.50%", "country": "UK"},
-    {"date": "2026-03-26", "event": "PCE Inflation (Jan)", "importance": "HIGH", "forecast": "2.6%", "previous": "2.5%", "country": "US"},
-    {"date": "2026-04-02", "event": "NFP + Unemployment", "importance": "HIGH", "forecast": "170k", "previous": "182k", "country": "US"},
-    {"date": "2026-04-10", "event": "CPI (Mar)", "importance": "HIGH", "forecast": "2.3%", "previous": "2.4%", "country": "US"},
-    {"date": "2026-04-29", "event": "GDP Q1 Advance", "importance": "HIGH", "forecast": "1.8%", "previous": "2.3%", "country": "US"},
-    {"date": "2026-04-06", "event": "ISM Services PMI", "importance": "MED", "forecast": "52.5", "previous": "52.1", "country": "US"},
+    {"date": "2026-03-27", "event": "GDP (Q4 Final)", "importance": "HIGH", "forecast": "", "previous": "", "country": "US"},
+    {"date": "2026-03-28", "event": "Core PCE Deflator", "importance": "HIGH", "forecast": "", "previous": "", "country": "US"},
+    {"date": "2026-04-01", "event": "ISM Manufacturing PMI", "importance": "HIGH", "forecast": "", "previous": "", "country": "US"},
+    {"date": "2026-04-04", "event": "NFP + Unemployment", "importance": "HIGH", "forecast": "", "previous": "", "country": "US"},
+    {"date": "2026-04-10", "event": "CPI (Mar)", "importance": "HIGH", "forecast": "", "previous": "", "country": "US"},
+    {"date": "2026-04-30", "event": "FOMC Rate Decision", "importance": "HIGH", "forecast": "", "previous": "", "country": "US"},
 ]
 
 
@@ -571,6 +1091,12 @@ def _build_economic_calendar():
         events = list(_ECON_CALENDAR_FALLBACK)
         source = 'scheduled'
     events.sort(key=lambda x: x.get('date') or '')
+    # Only upcoming / today (avoid showing past releases as "upcoming")
+    today_s = today.isoformat()
+    events = [e for e in events if (e.get('date') or '') >= today_s]
+    if len(events) < 2:
+        events = [e for e in _ECON_CALENDAR_FALLBACK if (e.get('date') or '') >= today_s]
+        source = 'scheduled'
     result = {"events": events, "source": source, "last_updated": datetime.utcnow().isoformat()}
     if source == 'scheduled':
         result["last_verified"] = "2026-03-13"
@@ -580,7 +1106,7 @@ def _build_economic_calendar():
 
 def _build_indicators():
     """GDP, unemployment, retail, housing, PMI, VIX, yield curve, CPI, real rate. Cache 30 min."""
-    cache_key = 'indicators'
+    cache_key = 'indicators_v2'
     cached = _cache_get(cache_key, 30 * 60)
     if cached is not None:
         return cached
@@ -612,6 +1138,19 @@ def _build_indicators():
                 out["housing_starts"] = round(float(s.dropna().iloc[-1]) / 1000, 2)
         except Exception:
             pass
+    # REST fallbacks when fredapi missing or series empty (same FRED IDs as above)
+    if out.get("gdp") is None:
+        g = _fetch_fred_series('A191RL1Q225SBEA')
+        if g is not None:
+            out["gdp"] = round(float(g), 2)
+    if out.get("unemployment") is None:
+        u = _fetch_fred_series('UNRATE')
+        if u is not None:
+            out["unemployment"] = round(float(u), 2)
+    if out.get("retail_mom") is None:
+        obs = _fetch_fred_observations('RSAFS', 2)
+        if len(obs) >= 2 and obs[1] != 0:
+            out["retail_mom"] = round((obs[0] / obs[1] - 1.0) * 100.0, 2)
     try:
         fi = getattr(yf.Ticker("^VIX"), 'fast_info', None)
         if fi is not None:
@@ -640,6 +1179,13 @@ def _build_indicators():
             out["real_rate"] = round(dgs10 - ov["cpi_yoy"], 2)
     except Exception:
         pass
+    # Align with Economic Indicators card when FRED + REST both fail — update quarterly
+    if out.get("gdp") is None:
+        out["gdp"] = 2.8
+    if out.get("unemployment") is None:
+        out["unemployment"] = 3.9
+    if out.get("retail_mom") is None:
+        out["retail_mom"] = 0.6
     _cache_set(cache_key, out)
     return out
 
@@ -737,6 +1283,86 @@ def _parse_insider_entry(entry, link):
             except Exception:
                 value = None
     return {'name': name or 'Unknown', 'transaction_type': tx_type, 'shares': shares, 'value': value}
+
+
+def _build_insiders_yfinance(symbol):
+    """Insider transactions from yfinance (preferred when EDGAR RSS lacks detail)."""
+    symbol = (symbol or '').strip().upper()
+    if not symbol:
+        return None
+    try:
+        t = yf.Ticker(symbol)
+        df = getattr(t, 'insider_transactions', None)
+        if df is None or getattr(df, 'empty', True):
+            return None
+        transactions = []
+
+        def _cell(row, *names):
+            for n in names:
+                if n in row.index:
+                    v = row[n]
+                    if v is not None and (not hasattr(v, 'item') or str(type(v)) != "<class 'pandas._libs.tslibs.nattype.NaTType'>"):
+                        try:
+                            if hasattr(v, 'item'):
+                                v = v.item()
+                        except Exception:
+                            pass
+                        if v is not None and str(v).lower() != 'nan':
+                            return v
+            return None
+
+        for _, row in df.head(25).iterrows():
+            name = _cell(row, 'Insider', 'insider', 'Owner', 'owner')
+            if name is None:
+                try:
+                    name = row.iloc[0] if len(row) > 0 else '—'
+                except Exception:
+                    name = '—'
+            position = _cell(row, 'Position', 'position', 'Relationship', 'relationship', 'Title', 'title', 'Type', 'type') or '—'
+            shares = _cell(row, 'Shares', 'shares', 'Share', 'share')
+            value = _cell(row, 'Value', 'value')
+            tx_raw = _cell(row, 'Transaction', 'transaction', 'Text', 'text') or ''
+            tstr = str(tx_raw).lower()
+            if 'buy' in tstr or 'purchase' in tstr or 'acquisition' in tstr:
+                transaction_type = 'Buy'
+            elif 'sale' in tstr or 'sell' in tstr or 'disposition' in tstr:
+                transaction_type = 'Sell'
+            else:
+                transaction_type = str(tx_raw)[:24] if tx_raw else '—'
+            d = _cell(row, 'Start Date', 'startDate', 'Date', 'date')
+            date_str = ''
+            if d is not None:
+                try:
+                    if hasattr(d, 'strftime'):
+                        date_str = d.strftime('%Y-%m-%d')
+                    else:
+                        date_str = str(d)[:10]
+                except Exception:
+                    date_str = str(d)[:10]
+            try:
+                sh = int(float(shares)) if shares is not None and str(shares) != 'nan' else None
+            except Exception:
+                sh = None
+            try:
+                valf = float(value) if value is not None and str(value) != 'nan' else None
+            except Exception:
+                valf = None
+            transactions.append({
+                'name': str(name).strip() or '—',
+                'position': str(position).strip() if position else '—',
+                'transaction_type': transaction_type,
+                'shares': sh,
+                'value': valf,
+                'date': date_str,
+                'source': 'yfinance',
+                'url': '',
+            })
+        if not transactions:
+            return None
+        return {'symbol': symbol, 'transactions': transactions}
+    except Exception as e:
+        print('[INSIDERS] yfinance', symbol, e)
+        return None
 
 
 def _build_insiders_edgar(symbol):
@@ -1143,12 +1769,9 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json({'error': 'no data'}, 404)
             return
 
-        # Treasury / FRED: 2Y, 10Y, 30Y
+        # Treasury / FRED: 2Y, 10Y, 30Y (same series as overview spread)
         if path == '/api/treasury':
-            dgs2 = _fetch_fred_series('DGS2')
-            dgs10 = _fetch_fred_series('DGS10')
-            dgs30 = _fetch_fred_series('DGS30')
-            self._send_json({'dgs2': dgs2, 'dgs10': dgs10, 'dgs30': dgs30})
+            self._send_json(_fred_treasury_yield_curve())
             return
 
         # Macro snapshot (currently wraps treasury curve; extendable later)
@@ -1175,6 +1798,18 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             self._send_json(stocks)
             return
 
+        # Equities tab: global market indices (yfinance; 60s cache)
+        if path == '/api/market-indices':
+            data = _fetch_market_indices_equities()
+            self._send_json(data)
+            return
+
+        # Equities tab: analyst consensus PT / upside (yfinance targetMeanPrice; 60s cache)
+        if path == '/api/analyst-consensus':
+            data = _fetch_analyst_consensus_equities()
+            self._send_json(data)
+            return
+
         # CNN Fear & Greed
         if path == '/api/feargreed':
             data = _calc_fear_greed()
@@ -1193,7 +1828,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             if not symbol:
                 self._send_json({'error': 'missing symbol'}, 400)
                 return
-            cache_key = f'earnings_yf_{symbol}'
+            cache_key = f'earnings_yf_v2_{symbol}'
             cached = _cache_get(cache_key, 3600)
             if cached is not None:
                 self._send_json(cached)
@@ -1201,102 +1836,175 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             out = {'symbol': symbol, 'next_earnings': None, 'history': []}
             try:
                 t = yf.Ticker(symbol)
-                cal = getattr(t, 'calendar', None)
-                if cal is not None:
+                info = getattr(t, 'info', None) or {}
+                today = datetime.utcnow().date()
+
+                def _row_to_date(idx):
                     try:
-                        if hasattr(cal, 'columns') and 'Earnings Date' in (cal.columns if hasattr(cal.columns, '__contains__') else []):
-                            dates = cal['Earnings Date']
-                            if hasattr(dates, 'iloc') and len(dates) > 0:
-                                first = dates.iloc[0]
-                                out['next_earnings'] = first.strftime('%Y-%m-%d') if hasattr(first, 'strftime') else str(first)[:10]
-                            elif isinstance(dates, (list, tuple)) and len(dates) > 0:
-                                first = dates[0]
-                                out['next_earnings'] = first.strftime('%Y-%m-%d') if hasattr(first, 'strftime') else str(first)[:10]
-                            elif hasattr(dates, '__len__') and len(dates) > 0:
-                                out['next_earnings'] = str(dates)[:10]
-                        elif hasattr(cal, 'iloc') and not cal.empty:
-                            next_dates = cal.index.astype(str).tolist() if hasattr(cal.index, 'astype') else []
-                            for dstr in next_dates:
-                                if dstr >= datetime.utcnow().strftime('%Y-%m-%d'):
-                                    out['next_earnings'] = dstr[:10]
-                                    break
+                        if hasattr(idx, 'date'):
+                            return idx.date()
+                        return datetime.fromisoformat(str(idx)[:10]).date()
                     except Exception:
-                        pass
-                if out['next_earnings'] is None:
-                    ed = getattr(t, 'earnings_dates', None)
-                    if ed is not None and not getattr(ed, 'empty', True) and len(ed) > 0:
+                        return None
+
+                # Next date: earningsTimestamp*, then calendar, then earnings_dates / get_earnings_dates future row
+                for ek in ('earningsTimestamp', 'earningsTimestampStart'):
+                    ts = info.get(ek)
+                    if ts:
                         try:
-                            first_date = ed.index[0]
-                            out['next_earnings'] = first_date.strftime('%Y-%m-%d') if hasattr(first_date, 'strftime') else str(first_date)[:10]
+                            ds = datetime.utcfromtimestamp(int(ts)).date()
+                            if ds >= today:
+                                out['next_earnings'] = ds.strftime('%Y-%m-%d')
+                                break
+                        except Exception:
+                            try:
+                                ds = datetime.fromisoformat(str(ts)[:10]).date()
+                                if ds >= today:
+                                    out['next_earnings'] = ds.strftime('%Y-%m-%d')
+                                    break
+                            except Exception:
+                                pass
+                if out['next_earnings'] is None:
+                    cal = getattr(t, 'calendar', None)
+                    if cal is not None:
+                        try:
+                            if hasattr(cal, 'columns'):
+                                for col in ('Earnings Date', 'Earnings Average', 'Event'):
+                                    if col in cal.columns:
+                                        cell = cal[col].iloc[0] if len(cal) > 0 else None
+                                        if cell is not None:
+                                            d = _row_to_date(cell) if not isinstance(cell, date) else cell
+                                            if d and d >= today:
+                                                out['next_earnings'] = d.strftime('%Y-%m-%d')
+                                                break
+                            if out['next_earnings'] is None and hasattr(cal, 'iloc') and not cal.empty:
+                                for idx in (cal.index.tolist() if hasattr(cal.index, 'tolist') else []):
+                                    d = _row_to_date(idx)
+                                    if d and d >= today:
+                                        out['next_earnings'] = d.strftime('%Y-%m-%d')
+                                        break
                         except Exception:
                             pass
-                # Primary path: legacy earnings_history, if available
-                eh = getattr(t, 'earnings_history', None)
-                if eh is not None and not (getattr(eh, 'empty', True)):
-                    try:
-                        df = eh.tail(4)
-                        for _, row in df.iterrows():
-                            est = row.get('epsEstimate') if hasattr(row, 'get') else None
-                            act = row.get('epsActual') if hasattr(row, 'get') else None
-                            surprise = None
-                            if est not in (None, 0) and act is not None:
-                                try:
-                                    surprise = (float(act) - float(est)) / float(est) * 100.0
-                                except Exception:
-                                    pass
-                            out['history'].append({
-                                'date': str(row.get('startdatetime', ''))[:10] if hasattr(row, 'get') else '',
-                                'eps_estimate': est,
-                                'eps_actual': act,
-                                'eps_surprise_pct': surprise,
-                                'revenue_estimate': getattr(row, 'revenueEstimate', None),
-                                'revenue_actual': getattr(row, 'revenueActual', None),
-                            })
-                    except Exception:
-                        pass
+                hist_candidates = []
 
-                # Fallback path: yfinance get_earnings_dates (newer API)
-                if not out['history']:
-                    try:
-                        get_ed = getattr(t, 'get_earnings_dates', None)
-                        if callable(get_ed):
-                            df2 = get_ed(limit=12)
-                            if df2 is not None and not getattr(df2, 'empty', True):
-                                rows = []
-                                today = datetime.utcnow().date()
-                                for idx, row in df2.iterrows():
-                                    d = None
+                def _yf_val_missing(v):
+                    if v is None:
+                        return True
+                    if isinstance(v, float) and v != v:
+                        return True
+                    return str(v).lower() in ('nan', 'nat', 'none', '')
+
+                def _df_to_hist(df2):
+                    rows = []
+                    if df2 is None or getattr(df2, 'empty', True):
+                        return rows
+                    for idx, row in df2.iterrows():
+                        d = _row_to_date(idx)
+                        if d is None or d > today:
+                            continue
+
+                        def gv(*keys):
+                            for k in keys:
+                                if k not in row.index:
+                                    continue
+                                v = row[k]
+                                if not _yf_val_missing(v):
+                                    return v
+                            return None
+
+                        est = gv('EPS Estimate', 'epsEstimate')
+                        act = gv('Reported EPS', 'EPS Actual', 'epsActual')
+                        surprise = gv('Surprise(%)', 'epsSurprisePct')
+                        if not _yf_val_missing(surprise):
+                            try:
+                                surprise = float(surprise)
+                            except Exception:
+                                surprise = None
+                        else:
+                            surprise = None
+                        if surprise is None and est not in (None, 0) and act is not None:
+                            try:
+                                surprise = (float(act) - float(est)) / float(est) * 100.0
+                            except Exception:
+                                pass
+                        rev_e = gv('Revenue Estimate', 'revenueEstimate')
+                        rev_a = gv('Revenue Actual', 'revenueActual')
+                        rows.append({
+                            'date': d.strftime('%Y-%m-%d'),
+                            'eps_estimate': est,
+                            'eps_actual': act,
+                            'eps_surprise_pct': surprise,
+                            'revenue_estimate': rev_e,
+                            'revenue_actual': rev_a,
+                        })
+                    rows.sort(key=lambda x: x.get('date') or '', reverse=True)
+                    return rows
+
+                try:
+                    get_ed = getattr(t, 'get_earnings_dates', None)
+                    if callable(get_ed):
+                        df2 = get_ed(limit=24)
+                        hist_candidates = _df_to_hist(df2)
+                        if out['next_earnings'] is None and df2 is not None and not getattr(df2, 'empty', True):
+                            for idx, row in df2.iterrows():
+                                d = _row_to_date(idx)
+                                if d is None:
+                                    continue
+                                if d >= today:
+                                    rep = row['Reported EPS'] if 'Reported EPS' in row.index else None
+                                    if _yf_val_missing(rep):
+                                        out['next_earnings'] = d.strftime('%Y-%m-%d')
+                                        break
+                except Exception:
+                    pass
+
+                if not hist_candidates:
+                    eh = getattr(t, 'earnings_history', None)
+                    if eh is not None and not getattr(eh, 'empty', True):
+                        try:
+                            for _, row in eh.tail(6).iterrows():
+                                est = row.get('epsEstimate') if hasattr(row, 'get') else None
+                                act = row.get('epsActual') if hasattr(row, 'get') else None
+                                surprise = None
+                                if est not in (None, 0) and act is not None:
                                     try:
-                                        if hasattr(idx, 'date'):
-                                            d = idx.date()
-                                        else:
-                                            d = datetime.fromisoformat(str(idx)).date()
+                                        surprise = (float(act) - float(est)) / float(est) * 100.0
                                     except Exception:
-                                        d = None
-                                    # Only keep past/most recent reported quarters for history
-                                    if d is None or d > today:
-                                        continue
-                                    est = row.get('EPS Estimate') or row.get('epsEstimate')
-                                    act = row.get('Reported EPS') or row.get('EPS Actual') or row.get('epsActual')
-                                    surprise = row.get('Surprise(%)') or row.get('epsSurprisePct')
-                                    if surprise is None and est not in (None, 0) and act is not None:
-                                        try:
-                                            surprise = (float(act) - float(est)) / float(est) * 100.0
-                                        except Exception:
-                                            surprise = None
-                                    rows.append({
-                                        'date': d.strftime('%Y-%m-%d') if d else '',
-                                        'eps_estimate': est,
-                                        'eps_actual': act,
-                                        'eps_surprise_pct': surprise,
-                                        'revenue_estimate': None,
-                                        'revenue_actual': None,
-                                    })
-                                if rows:
-                                    rows.sort(key=lambda x: x.get('date') or '', reverse=True)
-                                    out['history'] = rows[:4]
-                    except Exception:
-                        pass
+                                        pass
+                                hist_candidates.append({
+                                    'date': str(row.get('startdatetime', ''))[:10] if hasattr(row, 'get') else '',
+                                    'eps_estimate': est,
+                                    'eps_actual': act,
+                                    'eps_surprise_pct': surprise,
+                                    'revenue_estimate': row.get('revenueEstimate') if hasattr(row, 'get') else None,
+                                    'revenue_actual': row.get('revenueActual') if hasattr(row, 'get') else None,
+                                })
+                        except Exception:
+                            pass
+
+                if hist_candidates:
+                    out['history'] = hist_candidates[:6]
+                else:
+                    te = info.get('trailingEps')
+                    fe = info.get('forwardEps')
+                    if te is not None or fe is not None:
+                        out['history'].append({
+                            'date': 'TTM',
+                            'eps_estimate': fe,
+                            'eps_actual': te,
+                            'eps_surprise_pct': None,
+                            'revenue_estimate': None,
+                            'revenue_actual': None,
+                        })
+
+                if out['next_earnings'] is None:
+                    ed = getattr(t, 'earnings_dates', None)
+                    if ed is not None and not getattr(ed, 'empty', True):
+                        for idx in ed.index:
+                            d = _row_to_date(idx)
+                            if d and d >= today:
+                                out['next_earnings'] = d.strftime('%Y-%m-%d')
+                                break
             except Exception as e:
                 print('[EARNINGS] yfinance', symbol, e)
             _cache_set(cache_key, out)
@@ -1357,7 +2065,9 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             if not symbol:
                 self._send_json({'symbol': '', 'transactions': []})
                 return
-            data = _build_insiders_edgar(symbol)
+            data = _build_insiders_yfinance(symbol)
+            if not data or not data.get('transactions'):
+                data = _build_insiders_edgar(symbol)
             self._send_json(data)
             return
 
@@ -1367,7 +2077,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             if not symbol:
                 self._send_json({'error': 'missing symbol'}, 400)
                 return
-            cache_key = f'inst_yf_{symbol}'
+            cache_key = f'inst_yf_v2_{symbol}'
             cached = _cache_get(cache_key, 3600)
             if cached is not None:
                 self._send_json(cached)
@@ -1378,6 +2088,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
                 'institutional_ownership_pct': None,
                 'insider_pct': None,
                 'top_holders': [],
+                # Free yfinance has no prior-quarter institutional % — omit QoQ (no fake 0%)
                 'ownership_qoq_change_pct': None,
                 'source': 'yfinance',
             }

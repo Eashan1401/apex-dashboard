@@ -149,8 +149,8 @@
   .ms-change{font-family:var(--mono);font-size:10px;display:flex;align-items:center;gap:3px;}
   .ms-sub{font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px;}
 
-  /* NEWS */
-  .news-panel{grid-column:4;grid-row:1/5;display:flex;flex-direction:column;align-self:stretch;}
+  /* NEWS — min-height:0 + overflow:hidden so grid-row:1/-1 does not size to full feed height (fixes 600px+ gap between Macro row and Fear&Greed row) */
+  .news-panel{grid-column:4;grid-row:1/-1;display:flex;flex-direction:column;align-self:stretch;min-height:0;overflow:hidden;}
   .news-feed{flex:1;overflow-y:auto;min-height:0;}
   .news-item{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;}
   .news-item:hover{background:rgba(0,212,255,0.03);}
@@ -761,7 +761,7 @@
       <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);margin:10px 0 6px;">CREDIT SPREADS</div>
       <div class="spread-row"><span class="sl">IG Corp OAS</span><span style="font-family:var(--mono);font-size:11px;">+98 bps</span><span class="sig sok">TIGHT</span></div>
       <div class="spread-row"><span class="sl">HY OAS</span><span style="font-family:var(--mono);font-size:11px;">+328 bps</span><span class="sig sc">WATCH</span></div>
-      <div class="spread-row"><span class="sl">2Y/10Y</span><span style="font-family:var(--mono);font-size:11px;">-18 bps</span><span class="sig sw">INVERTED</span></div>
+      <div class="spread-row"><span class="sl">2Y/10Y</span><span id="overviewFiSpread2s10s" style="font-family:var(--mono);font-size:11px;">—</span><span id="overviewFiSpread2s10sSig" class="sig sw">—</span></div>
       <div class="spread-row"><span class="sl">Real Rate (10Y)</span><span style="font-family:var(--mono);font-size:11px;">+2.1%</span><span class="sig sc">RESTRICTIVE</span></div>
     </div>
   </div>
@@ -781,17 +781,10 @@
     </div>
   </div>
 
-  <!-- MACRO CALENDAR -->
+  <!-- MACRO CALENDAR: populated from /api/economic-calendar (server filters past dates). Fallback dates in server.py — update monthly or use FRED/Trading Economics API. -->
   <div class="card">
     <div class="card-header"><span class="card-title">Macro Calendar</span><span class="card-badge">UPCOMING</span></div>
-    <div style="padding:4px 16px;">
-      <div class="ev-item"><div class="ev-date">Mar 12</div><div><div class="ev-title">US CPI (Feb)</div><span class="ev-imp ih">HIGH</span></div></div>
-      <div class="ev-item"><div class="ev-date">Mar 13</div><div><div class="ev-title">PPI + Retail Sales</div><span class="ev-imp im">MED</span></div></div>
-      <div class="ev-item"><div class="ev-date">Mar 19</div><div><div class="ev-title">FOMC Rate Decision</div><span class="ev-imp ih">HIGH</span></div></div>
-      <div class="ev-item"><div class="ev-date">Mar 22</div><div><div class="ev-title">Flash PMI US + EU</div><span class="ev-imp im">MED</span></div></div>
-      <div class="ev-item"><div class="ev-date">Mar 28</div><div><div class="ev-title">Core PCE Deflator</div><span class="ev-imp ih">HIGH</span></div></div>
-      <div class="ev-item"><div class="ev-date">Apr 7</div><div><div class="ev-title">NFP + Unemployment</div><span class="ev-imp ih">HIGH</span></div></div>
-    </div>
+    <div id="macroCalendarOverview" style="padding:4px 16px;"></div>
   </div>
 
   <!-- SIGNALS -->
@@ -834,53 +827,7 @@
   <div class="page-title">EQUITIES</div>
   <div class="card" style="padding:0;">
     <div class="card-header"><span class="card-title">Market Indices</span><span class="card-badge">LIVE % CHANGE</span></div>
-    <div style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border);">
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">SPX</div>
-        <div class="display" style="font-family:var(--display);font-size:20px;">5,187</div>
-        <div class="up" style="font-size:10px;">+0.42%</div>
-      </div>
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">NDX</div>
-        <div style="font-family:var(--display);font-size:20px;">18,234</div>
-        <div class="up" style="font-size:10px;">+0.67%</div>
-      </div>
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">DJIA</div>
-        <div style="font-family:var(--display);font-size:20px;">41,220</div>
-        <div class="up" style="font-size:10px;">+0.28%</div>
-      </div>
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">RUT</div>
-        <div style="font-family:var(--display);font-size:20px;">2,148</div>
-        <div class="down" style="font-size:10px;">-0.12%</div>
-      </div>
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">VIX</div>
-        <div style="font-family:var(--display);font-size:20px;color:var(--gold);">18.4</div>
-        <div class="up" style="font-size:10px;">+0.9%</div>
-      </div>
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">DAX</div>
-        <div style="font-family:var(--display);font-size:20px;">18,441</div>
-        <div class="up" style="font-size:10px;">+0.9%</div>
-      </div>
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">FTSE</div>
-        <div style="font-family:var(--display);font-size:20px;">8,312</div>
-        <div class="up" style="font-size:10px;">+0.5%</div>
-      </div>
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">Nikkei</div>
-        <div style="font-family:var(--display);font-size:20px;">39,850</div>
-        <div class="down" style="font-size:10px;">-0.4%</div>
-      </div>
-      <div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">
-        <div style="color:var(--text3);margin-bottom:4px;">HSI</div>
-        <div style="font-family:var(--display);font-size:20px;">16,420</div>
-        <div class="up" style="font-size:10px;">+0.7%</div>
-      </div>
-    </div>
+    <div id="equitiesMarketIndices" style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border);min-height:48px;"><div style="padding:12px 14px;color:var(--text3);font-family:var(--mono);font-size:11px;">Loading indices…</div></div>
   </div>
   <div class="panel-2col">
     <div class="card" style="padding:0;overflow-x:auto;">
@@ -962,7 +909,7 @@
   <div class="card" id="macroSectionYieldCurve">
     <div class="card-header"><span class="card-title">US Yield Curve <span class="edu-trigger" onclick="event.stopPropagation();showEduModal('yieldCurve')" title="How is this calculated?">i</span></span><span class="card-badge">3M → 30Y · HISTORICAL COMPARISON</span></div>
     <div class="yield-curve-full" id="yieldCurveFull"></div>
-    <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:8px;">— Current (solid) vs 6M ago (dashed) · Inversion 2Y/10Y: -18bp</div>
+    <div id="macroYieldCurveFootnote" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:8px;">— Current (solid) vs 6M ago (dashed) · 2Y/10Y (DGS10−DGS2): —</div>
   </div>
   <div class="panel-2col">
     <div class="card" id="macroSectionFedWatch">
@@ -1268,6 +1215,69 @@ async function fetchQuote(symbol) {
   return data;
 }
 
+function apexFormatTapeCommodityPrice(label, price) {
+  if (price == null || !Number.isFinite(Number(price))) return null;
+  const p = Number(price);
+  if (label === 'GOLD' || p >= 1000) return '$' + Math.round(p).toLocaleString('en-US');
+  return '$' + p.toFixed(2);
+}
+function apexCommodityBarWidth(price, low, high) {
+  if (low == null || high == null || !Number.isFinite(Number(high)) || !Number.isFinite(Number(low)) || high <= low || price == null) return null;
+  const p = Number(price);
+  const w = Math.round(((p - low) / (high - low)) * 100);
+  return Math.max(5, Math.min(100, w));
+}
+function apexRangeLabel(low, high) {
+  if (low == null || high == null) return null;
+  const fmt = function(v) { return Number(v) >= 1000 ? '$' + Math.round(Number(v)).toLocaleString('en-US') : '$' + Number(v).toFixed(2); };
+  return fmt(low) + '–' + fmt(high);
+}
+function apexApplyCommoditiesTape(TD, comm) {
+  if (!comm) return;
+  const map = { GOLD: 'gold', SILVER: 'silver', WTI: 'wti' };
+  TD.forEach(function(t, i) {
+    var key = map[t.s];
+    if (!key) return;
+    var c = comm[key];
+    if (!c || c.price == null) return;
+    var pv = apexFormatTapeCommodityPrice(t.s, c.price);
+    if (pv) TD[i].v = pv;
+    var chg = c.change_pct != null ? String(c.change_pct) : '—';
+    TD[i].c = chg;
+    if (c.change != null) TD[i].u = c.change >= 0 ? 1 : 0;
+    else TD[i].u = chg === '—' ? 1 : (/^-/.test(String(chg).trim()) ? 0 : 1);
+  });
+}
+function apexApplyCommoditiesCOMD(COMD, comm) {
+  if (!comm || typeof COMD === 'undefined') return;
+  var rows = [
+    { name: 'GOLD', key: 'gold' },
+    { name: 'SILVER', key: 'silver' },
+    { name: 'WTI CRUDE', key: 'wti' },
+    { name: 'BRENT', key: 'brent' },
+  ];
+  rows.forEach(function(_ref) {
+    var name = _ref.name, key = _ref.key;
+    var c = comm[key];
+    if (!c || c.price == null) return;
+    var ci = COMD.findIndex(function(x) { return x.name === name || (name === 'WTI CRUDE' && x.name.indexOf('WTI') >= 0); });
+    if (ci < 0) return;
+    var p = Number(c.price);
+    COMD[ci].price = p >= 1000 ? '$' + Math.round(p).toLocaleString('en-US') : '$' + p.toFixed(2);
+    COMD[ci].chg = c.change_pct != null ? String(c.change_pct) : '—';
+    if (c.change != null) COMD[ci].u = c.change >= 0 ? 1 : 0;
+    else COMD[ci].u = COMD[ci].chg === '—' ? 1 : (/^-/.test(String(COMD[ci].chg).trim()) ? 0 : 1);
+    var rl = apexRangeLabel(c.range_low, c.range_high);
+    if (key === 'silver' && (!c.range_high || !c.range_low || Number(c.range_high) > 100)) {
+      COMD[ci].range = 'N/A';
+    } else if (rl) {
+      COMD[ci].range = rl;
+    }
+    var nw = apexCommodityBarWidth(c.price, c.range_low, c.range_high);
+    if (nw != null) COMD[ci].w = nw;
+  });
+}
+
 async function refreshLiveData() {
   const btn = document.getElementById('refreshBtn');
   if (btn) { btn.classList.add('loading'); btn.textContent = '…'; }
@@ -1275,14 +1285,14 @@ async function refreshLiveData() {
   const euSymbols = ['ASML','SAP','LVMH','SHEL','HSBA','SIE','TTE','NESN'];
   const euApiSymbols = ['ASML.AS','SAP.DE','MC.PA','SHEL.L','HSBA.L','SIE.DE','TTE.PA','NESN.SW'];
   const tickerMap = [
-    { bar: 'SPX', api: 'SPY' }, { bar: 'NDX', api: 'QQQ' },
+    { bar: 'SPX', api: '^GSPC' }, { bar: 'NDX', api: '^NDX' },
     { bar: 'NVDA', api: 'NVDA' }, { bar: 'MSFT', api: 'MSFT' }, { bar: 'AAPL', api: 'AAPL' }, { bar: 'META', api: 'META' },
-    { bar: 'JPM', api: 'JPM' }, { bar: 'GS', api: 'GS' }, { bar: 'WTI', api: 'USO' }, { bar: 'GOLD', api: 'GLD' },
-    { bar: 'SILVER', api: 'SLV' }, { bar: 'BTC', api: 'IBIT' }, { bar: 'ASML', api: 'ASML' }
+    { bar: 'JPM', api: 'JPM' }, { bar: 'GS', api: 'GS' },
+    { bar: 'BTC', api: 'IBIT' }, { bar: 'ASML', api: 'ASML' }
   ];
-  const commodityMap = [{ name: 'GOLD', api: 'GLD' }, { name: 'SILVER', api: 'SLV' }, { name: 'WTI CRUDE', api: 'USO' }, { name: 'BRENT', api: 'BNO' }];
-  const allApiSymbols = [...usSymbols, ...euApiSymbols, 'SPY', 'QQQ', 'GLD', 'SLV', 'USO', 'BNO', 'IBIT'];
+  const allApiSymbols = [...usSymbols, ...euApiSymbols, '^GSPC', '^NDX', 'IBIT'];
   const quotes = await fetchProxyQuotes(allApiSymbols);
+  const commoditiesData = await apexFetchJSON('/api/commodities').catch(function() { return null; });
   const treasury = await fetchProxyTreasury();
 
   // US stocks
@@ -1325,27 +1335,41 @@ async function refreshLiveData() {
     if (!m) return;
     const q = quotes[m.api];
     if (!q) return;
+    if (t.s === 'SPX' || t.s === 'NDX') {
+      TD[i].v = Number(q.price).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    } else {
     const isDollar = ['GOLD','WTI','BTC','NVDA','MSFT','AAPL','META','JPM','GS'].includes(t.s);
     TD[i].v = isDollar ? (q.price >= 1000 ? '$' + q.price.toLocaleString('en-US',{maximumFractionDigits:0}) : '$' + q.price.toFixed(2)) : (q.price >= 100 ? q.price.toFixed(0) : q.price.toFixed(2));
+    }
     TD[i].c = q.pct;
     TD[i].u = q.u ? 1 : 0;
   });
 
-  // Commodities
-  commodityMap.forEach(({ name, api }) => {
-    const q = quotes[api];
-    if (!q) return;
-    const ci = COMD.findIndex(x => x.name === name || (name === 'WTI CRUDE' && x.name.includes('WTI')));
-    if (ci >= 0) {
-      COMD[ci].price = q.price >= 100 ? '$' + q.price.toFixed(2) : '$' + q.price.toFixed(2);
-      COMD[ci].chg = q.pct;
-      COMD[ci].u = q.u ? 1 : 0;
-    }
-  });
+  apexApplyCommoditiesTape(TD, commoditiesData);
+  apexApplyCommoditiesCOMD(COMD, commoditiesData);
 
   // Treasury: update overview yield curve (2Y, 10Y, 30Y) from FRED
   if (treasury) {
     window.APEX_TREASURY = treasury;
+    if (treasury.dgs2 != null && treasury.dgs10 != null) {
+      const spreadPct = treasury.dgs10 - treasury.dgs2;
+      const bps = Math.round(spreadPct * 100);
+      const el = document.getElementById('overviewFiSpread2s10s');
+      const sig = document.getElementById('overviewFiSpread2s10sSig');
+      if (el) el.textContent = (bps >= 0 ? '+' : '') + bps + ' bps';
+      if (sig) {
+        if (Math.abs(spreadPct) <= 0.10) {
+          sig.textContent = 'FLAT';
+          sig.className = 'sig sc';
+        } else if (bps < 0) {
+          sig.textContent = 'INVERTED';
+          sig.className = 'sig sw';
+        } else {
+          sig.textContent = 'STEEP';
+          sig.className = 'sig sok';
+        }
+      }
+    }
     document.querySelectorAll('.yn').forEach(yn => {
       const tenor = yn.querySelector('.yn-tenor');
       const rateEl = yn.querySelector('.yn-rate');
@@ -1548,23 +1572,48 @@ function openFund(i){
 }
 function closeFundModal(){document.getElementById('fundModal').classList.remove('open');}
 
-// SIGNALS — latest only (Mar 2026 / Q1 2026 context)
+// SIGNALS — analyst PTs fixed here; "Now" & upside % refresh from /api/quotes on load & refresh
 const SIGS=[
-  {t:'NVDA',r:'BUY',rc:'rb',pt:'$1,100',now:'$875',up:'+25.7%',u:1,th:'AI capex supercycle intact. Blackwell demand through 2026; latest earnings and guide support thesis.'},
-  {t:'MSFT',r:'BUY',rc:'rb',pt:'$520',now:'$415',up:'+25.3%',u:1,th:'Azure + Copilot monetization accelerating. Best enterprise AI platform at scale (latest quarter).'},
-  {t:'JPM',r:'HOLD',rc:'rh',pt:'$195',now:'$197',up:'-1.0%',u:0,th:'NII compression risk as rates peak. Fortress balance sheet limits downside. Latest macro drives view.'},
-  {t:'XOM',r:'WATCH',rc:'rw',pt:'$130',now:'$118',up:'+10.2%',u:1,th:'Iran geo premium + disciplined capex. Tactical entry on latest crude/OPEC setup.'},
-  {t:'GLD',r:'BUY',rc:'rb',pt:'$220',now:'$194',up:'+13.4%',u:1,th:'CB accumulation + real rate plateau + geopolitical hedging. Thesis intact on latest data.'},
-  {t:'BX',r:'HOLD',rc:'rh',pt:'$140',now:'$128',up:'+9.4%',u:1,th:'BREIT redemption overhang. Watch for stabilization; view based on latest flows and distrib.'},
+  {t:'NVDA',r:'BUY',rc:'rb',pt:'$250',now:'—',up:'—',u:1,th:'Mar 2026: AI capex cycle intact post-correction; Blackwell/Rubin roadmap. Iran/oil volatility keeps semis bid on data-center demand.'},
+  {t:'MSFT',r:'BUY',rc:'rb',pt:'$450',now:'—',up:'—',u:1,th:'Azure + Copilot/Agent monetization; enterprise AI attach. Late-cycle quality compounder amid macro uncertainty.'},
+  {t:'JPM',r:'HOLD',rc:'rh',pt:'$320',now:'—',up:'—',u:0,th:'Higher-for-longer rates support NII; IB/M&A recovery. Fortress balance sheet through late cycle and oil-shock volatility.'},
+  {t:'XOM',r:'WATCH',rc:'rw',pt:'$185',now:'—',up:'—',u:1,th:'Mar 2026: Iran Strait risk + OPEC discipline = crude premium; integrated majors capture upstream cash and buybacks.'},
+  {t:'GLD',r:'BUY',rc:'rb',pt:'$500',now:'—',up:'—',u:1,th:'Safe-haven + CB demand into geopolitical oil shock; real yields easing off peak supports bullion.'},
+  {t:'BX',r:'HOLD',rc:'rh',pt:'$135',now:'—',up:'—',u:1,th:'Alts & private credit franchise; BREIT overhang fading vs. fee-related earnings. Tactical on credit marks in late cycle.'},
 ];
-document.getElementById('sigGrid').innerHTML=SIGS.map(s=>`
+function apexRenderSigGrid() {
+  document.getElementById('sigGrid').innerHTML = SIGS.map(s=>`
   <div class="sig-item" data-ticker="${s.t}" onclick="qs('${s.t}')">
     <div class="si-ticker">${s.t}</div>
     <div class="si-rating ${s.rc}">${s.r}</div>
     <div class="si-target">PT: ${s.pt} | Now: ${s.now}</div>
-    <div class="${s.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${s.u?'▲':'▼'} ${s.up}</div>
+    <div class="${s.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${(s.up === '—' || s.up == null) ? '—' : `${s.u ? '▲' : '▼'} ${s.up}`}</div>
     <div class="si-thesis">${s.th}</div>
   </div>`).join('');
+}
+async function apexRefreshResearchConvictionPrices() {
+  if (typeof SIGS === 'undefined' || !SIGS.length || typeof fetchProxyQuotes !== 'function') return;
+  const quotes = await fetchProxyQuotes(SIGS.map(s => s.t));
+  function parsePT(ptStr) {
+    const m = String(ptStr).replace(/[$,]/g, '').match(/-?[\d.]+/);
+    return m ? parseFloat(m[0]) : null;
+  }
+  SIGS.forEach(s => {
+    const q = quotes[s.t];
+    if (!q || q.price == null || !Number.isFinite(Number(q.price))) return;
+    const now = Number(q.price);
+    s.now = now >= 1000 ? '$' + now.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '$' + now.toFixed(2);
+    const pt = parsePT(s.pt);
+    if (pt != null && now > 0) {
+      const up = (pt - now) / now * 100;
+      s.up = (up >= 0 ? '+' : '') + up.toFixed(1) + '%';
+      s.u = up >= 0 ? 1 : 0;
+    }
+  });
+  apexRenderSigGrid();
+}
+apexRenderSigGrid();
+apexRefreshResearchConvictionPrices().catch(function() {});
 
 // ——— EQUITIES PAGE DATA ———
 const US_STOCKS_FULL = [
@@ -1604,9 +1653,15 @@ const FACTOR_DATA = [
 ];
 const CORR_TICKERS = ['NVDA','MSFT','AAPL','META','JPM','GOOGL','XOM','AMD'];
 const CORR_MATRIX = [[1,0.72,0.68,0.75,0.45,0.71,0.22,0.82],[0.72,1,0.65,0.68,0.52,0.78,0.28,0.69],[0.68,0.65,1,0.62,0.58,0.64,0.35,0.66],[0.75,0.68,0.62,1,0.42,0.70,0.25,0.74],[0.45,0.52,0.58,0.42,1,0.48,0.55,0.44],[0.71,0.78,0.64,0.70,0.48,1,0.26,0.68],[0.22,0.28,0.35,0.25,0.55,0.26,1,0.24],[0.82,0.69,0.66,0.74,0.44,0.68,0.24,1]];
+/* B/H/S counts static; PT & upside from /api/analyst-consensus (yfinance targetMeanPrice) */
+const ANALYST_PT_FALLBACK = { NVDA:250, MSFT:450, AAPL:275, GOOGL:350, META:650, JPM:320, GS:900, BAC:55, BX:135, BLK:1100, XOM:185, AMD:250 };
+const APEX_INDICES_DEFAULT = [
+  { label:'SPX', symbol:'^GSPC' }, { label:'NDX', symbol:'^NDX' }, { label:'DJIA', symbol:'^DJI' }, { label:'RUT', symbol:'^RUT' },
+  { label:'VIX', symbol:'^VIX' }, { label:'DAX', symbol:'^GDAXI' }, { label:'FTSE', symbol:'^FTSE' }, { label:'Nikkei', symbol:'^N225' }, { label:'HSI', symbol:'^HSI' },
+];
 const ANALYST_DATA = [
-  {t:'NVDA',buy:42,hold:4,sell:0,pt:'$1,100',up:25.7},{t:'MSFT',buy:38,hold:6,sell:0,pt:'$520',up:25.3},{t:'JPM',buy:12,hold:18,sell:2,pt:'$195',up:-1.0},{t:'XOM',buy:8,hold:14,sell:3,pt:'$130',up:10.2},
-  {t:'AAPL',buy:22,hold:12,sell:1,pt:'$210',up:17.4},{t:'META',buy:35,hold:5,sell:0,pt:'$580',up:10.5},
+  {t:'NVDA',buy:42,hold:4,sell:0},{t:'MSFT',buy:38,hold:6,sell:0},{t:'AAPL',buy:22,hold:12,sell:1},{t:'GOOGL',buy:28,hold:10,sell:0},{t:'META',buy:35,hold:5,sell:0},
+  {t:'JPM',buy:12,hold:18,sell:2},{t:'GS',buy:18,hold:14,sell:2},{t:'BAC',buy:14,hold:20,sell:2},{t:'BX',buy:16,hold:16,sell:2},{t:'BLK',buy:22,hold:12,sell:1},{t:'XOM',buy:8,hold:14,sell:3},{t:'AMD',buy:32,hold:8,sell:2},
 ];
 
 function renderEquitiesPage(){
@@ -1628,7 +1683,63 @@ function renderEquitiesPage(){
   }
   corrHtml += '</div>';
   document.getElementById('corrMatrix').innerHTML = corrHtml;
-  document.getElementById('analystPanel').innerHTML = ANALYST_DATA.map(a=>`<div class="metric-row"><span style="color:var(--accent)">${a.t}</span><span>B ${a.buy} / H ${a.hold} / S ${a.sell}</span></div><div class="metric-row"><span>PT ${a.pt}</span><span class="${a.up>=0?'up':'down'}">${a.up>=0?'+':''}${a.up}% upside</span></div>`).join('');
+  apexLoadEquitiesMarketIndices();
+  apexLoadAnalystConsensusPanel();
+}
+
+function apexFmtEquitiesIndexPrice(label, val) {
+  if (val == null || !Number.isFinite(Number(val))) return '—';
+  const n = Number(val);
+  if (label === 'VIX') return n.toFixed(1);
+  return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+async function apexLoadEquitiesMarketIndices() {
+  const host = document.getElementById('equitiesMarketIndices');
+  if (!host) return;
+  const data = await apexFetchJSON('/api/market-indices').catch(function() { return null; });
+  let rows = (data && data.indices) ? data.indices : [];
+  if (!rows.length) {
+    rows = APEX_INDICES_DEFAULT.map(function(d) { return { label: d.label, symbol: d.symbol, price: null, change_pct: null }; });
+  }
+  host.innerHTML = rows.map(function(row) {
+    const lbl = row.label || '';
+    const priceStr = apexFmtEquitiesIndexPrice(lbl, row.price);
+    const p = row.change_pct;
+    const u = p == null ? 1 : p >= 0;
+    const pctStr = p == null ? '—' : ((p >= 0 ? '+' : '') + Number(p).toFixed(2) + '%');
+    const vixStyle = lbl === 'VIX' ? 'color:var(--gold);' : '';
+    return '<div style="flex:1;min-width:90px;padding:12px 14px;background:var(--bg2);font-family:var(--mono);font-size:11px;border:1px solid var(--border);">' +
+      '<div style="color:var(--text3);margin-bottom:4px;">' + lbl + '</div>' +
+      '<div class="display" style="font-family:var(--display);font-size:20px;' + vixStyle + '">' + priceStr + '</div>' +
+      '<div class="' + (u ? 'up' : 'down') + '" style="font-size:10px;">' + pctStr + '</div></div>';
+  }).join('');
+}
+async function apexLoadAnalystConsensusPanel() {
+  const el = document.getElementById('analystPanel');
+  if (!el) return;
+  const data = await apexFetchJSON('/api/analyst-consensus').catch(function() { return null; });
+  const rows = (data && data.consensus && data.consensus.length) ? data.consensus : null;
+  function render(rowsIn) {
+    el.innerHTML = rowsIn.map(function(a) {
+      var t = a.ticker || a.t;
+      var buy = a.buy, hold = a.hold, sell = a.sell;
+      var ptNum = a.pt;
+      var up = a.upside_pct;
+      var ptStr = ptNum != null ? ('$' + Number(ptNum).toLocaleString('en-US', { maximumFractionDigits: 0 })) : '—';
+      var upStr = up == null ? '—' : ((up >= 0 ? '+' : '') + Number(up).toFixed(1) + '% upside');
+      var upCls = up == null ? '' : (up >= 0 ? 'up' : 'down');
+      return '<div class="metric-row"><span style="color:var(--accent)">' + t + '</span><span>B ' + buy + ' / H ' + hold + ' / S ' + sell + '</span></div>' +
+        '<div class="metric-row"><span>PT ' + ptStr + '</span><span class="' + upCls + '">' + upStr + '</span></div>';
+    }).join('');
+  }
+  if (rows) {
+    render(rows);
+    return;
+  }
+  render(ANALYST_DATA.map(function(x) {
+    var pt = ANALYST_PT_FALLBACK[x.t] != null ? ANALYST_PT_FALLBACK[x.t] : null;
+    return { ticker: x.t, buy: x.buy, hold: x.hold, sell: x.sell, pt: pt, upside_pct: null };
+  }));
 }
 
 // ——— MACRO PAGE ———
@@ -1656,10 +1767,10 @@ function renderMacroPage(){
 function renderFundsPage(){
   let html = '';
   FUNDS.forEach((f, i) => {
-    const top20 = [...(f.holdings||[]),...Array(15).fill(null).map((_,j)=>({s:`HOLD${j+6}`,n:'Holding '+(j+6),p:(5-j*0.2).toFixed(1)+'%'}))].slice(0,20);
+    const top5 = (f.holdings || []).slice(0, 5);
     html += `<div class="fund-expanded"><div class="fex-header"><span class="fex-name">${f.name}</span><span class="card-badge">${f.style}</span></div><div class="fex-body">`;
     html += `<div><div class="fex-section-title">ALLOCATION</div>${f.alloc.map(a=>`<div class="alloc-row"><span class="al">${a.l}</span><span class="ap">${a.p}%</span><div class="abar"><div class="afill" style="width:${Math.min(100,a.p)}%"></div></div></div>`).join('')}`;
-    html += `<div class="fex-section-title">TOP 20 HOLDINGS</div>${top20.map(h=>`<div class="holding-item"><span class="hs">${h.s}</span><span class="hn">${h.n}</span><span class="hp">${h.p}</span></div>`).join('')}`;
+    html += `<div class="fex-section-title">TOP 5 HOLDINGS</div>${top5.map(h=>`<div class="holding-item"><span class="hs">${h.s}</span><span class="hn">${h.n}</span><span class="hp">${h.p}</span></div>`).join('')}`;
     html += `<div class="fex-section-title">QUARTERLY FLOWS</div><div class="flow-summary"><div class="flow-nums"><span class="fi">IN ${f.fi}</span><span class="fo">OUT ${f.fo}</span></div></div>`;
     html += `<div class="fex-section-title">MANAGER & PHILOSOPHY</div><div style="font-size:11px;color:var(--text2);line-height:1.5">${f.mgr}. ${f.style}. Performance vs benchmark: see 13F filings.</div></div>`;
     html += `<div><div class="fex-section-title">13F CHANGES (LAST Q)</div><div class="mstat"><span class="msk">BUY/ADD</span><span class="msv">See WhalewIsdom</span></div><div class="mstat"><span class="msk">REDUCE/SELL</span><span class="msv">See SEC EDGAR</span></div></div></div></div>`;
@@ -1668,7 +1779,7 @@ function renderFundsPage(){
   const changes = [{fund:'BlackRock',sym:'NVDA',act:'ADD',chg:'+2.1%'},{fund:'BlackRock',sym:'AAPL',act:'REDUCE',chg:'-0.8%'},{fund:'Bridgewater',sym:'GLD',act:'BUY',chg:'+7.5%'},{fund:'ARK',sym:'TSLA',act:'HOLD',chg:'0%'},{fund:'Blue Owl',sym:'OBDC',act:'—',chg:'—'}];
   document.getElementById('thirteenFTracker').innerHTML = `<table class="full-table"><thead><tr><th>Fund</th><th>Ticker</th><th>Action</th><th>Change</th></tr></thead><tbody>${changes.map(c=>`<tr><td>${c.fund}</td><td style="color:var(--accent)">${c.sym}</td><td>${c.act}</td><td class="${c.chg.startsWith('-')?'down':'up'}">${c.chg}</td></tr>`).join('')}</tbody></table>`;
   document.getElementById('flowAggregator').innerHTML = `<div class="metric-row"><span>US Equity</span><span class="up">+$12.4B net</span></div><div class="metric-row"><span>Fixed Income</span><span class="up">+$8.2B</span></div><div class="metric-row"><span>Private Credit / RE</span><span class="down">-$4.1B</span></div><div class="metric-row"><span>Commodities / Gold</span><span class="up">+$1.2B</span></div>`;
-  document.getElementById('ownershipChanges').innerHTML = USD.slice(0,6).map(s=>`<div class="metric-row"><span style="color:var(--accent)">${s.s}</span><span>${s.n}</span><span>Institutional +0.2% QoQ (agg)</span></div>`).join('');
+  document.getElementById('ownershipChanges').innerHTML = USD.slice(0,6).map(s=>`<div class="metric-row"><span style="color:var(--accent)">${s.s}</span><span>${s.n}</span><span>+0.2% QoQ</span></div>`).join('');
 }
 
 // ——— FIXED INCOME PAGE ———
@@ -1690,31 +1801,17 @@ function renderFixedIncomePage(){
   document.getElementById('durationCalculator').innerHTML = `<div class="metric-row"><span>Portfolio duration</span><span>6.2y</span></div><div class="metric-row"><span>+100bp impact</span><span class="down">≈ -6.2%</span></div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:8px">Convexity-adjusted estimate. Re-run with live holdings for accuracy.</div>`;
 }
 
-// ——— SIGNALS PAGE ——— (latest only: Mar 2026 / Q1 2026)
+// ——— SIGNALS PAGE ——— (latest only: Mar 2026 / Q1 2026) — now/rr/ret filled from /api/quotes on load
 const SIGNALS_FULL = [
-  {t:'NVDA',r:'BUY',rc:'rb',entry:820,now:875.40,target:1100,stop:780,rr:2.8,strength:9,bull:'Blackwell cycle through 2026',bear:'China export ban',base:'AI capex intact',catalyst:'Q1 2026 earnings',date:'Mar 8',ret:6.8},
-  {t:'MSFT',r:'BUY',rc:'rb',entry:398,now:415.20,target:520,stop:375,rr:2.9,strength:8,bull:'Copilot monetization 3x',bear:'Azure slowdown',base:'Enterprise AI lead',catalyst:'Build conf May 2026',date:'Mar 8',ret:4.3},
-  {t:'JPM',r:'HOLD',rc:'rh',entry:198,now:197.30,target:195,stop:185,rr:0.2,strength:5,bull:'NII reacceleration',bear:'NIM compression',base:'Fortress balance sheet',catalyst:'Q1 2026 earnings',date:'Mar 8',ret:-0.4},
-  {t:'XOM',r:'WATCH',rc:'rw',entry:112,now:118.30,target:130,stop:105,rr:2.2,strength:6,bull:'Iran premium + capex discipline',bear:'Demand slowdown',base:'Geo + OPEC',catalyst:'Crude $90 / OPEC+',date:'Mar 8',ret:5.6},
-  {t:'GLD',r:'BUY',rc:'rb',entry:185,now:194,target:220,stop:178,rr:2.1,strength:7,bull:'CB buying + geo',bear:'Real rates spike',base:'Hedge demand',catalyst:'FOMC May 2026',date:'Mar 8',ret:4.9},
-  {t:'BX',r:'HOLD',rc:'rh',entry:132,now:128.40,target:140,stop:118,rr:0.6,strength:4,bull:'BREIT stabilizes',bear:'Redemption wave',base:'Wait for clarity',catalyst:'Q1 2026 distrib',date:'Mar 8',ret:-2.7},
+  {t:'NVDA',r:'BUY',rc:'rb',entry:130,now:null,target:250,stop:110,rr:null,strength:9,bull:'Blackwell cycle through 2026',bear:'China export ban',base:'AI capex intact',catalyst:'Q1 2026 earnings',date:'Mar 8',ret:null},
+  {t:'MSFT',r:'BUY',rc:'rb',entry:398,now:null,target:520,stop:375,rr:null,strength:8,bull:'Copilot monetization 3x',bear:'Azure slowdown',base:'Enterprise AI lead',catalyst:'Build conf May 2026',date:'Mar 8',ret:null},
+  {t:'JPM',r:'HOLD',rc:'rh',entry:198,now:null,target:320,stop:185,rr:null,strength:5,bull:'NII reacceleration',bear:'NIM compression',base:'Fortress balance sheet',catalyst:'Q1 2026 earnings',date:'Mar 8',ret:null},
+  {t:'XOM',r:'WATCH',rc:'rw',entry:112,now:null,target:130,stop:105,rr:null,strength:6,bull:'Iran premium + capex discipline',bear:'Demand slowdown',base:'Geo + OPEC',catalyst:'Crude $90 / OPEC+',date:'Mar 8',ret:null},
+  {t:'GLD',r:'BUY',rc:'rb',entry:185,now:null,target:220,stop:178,rr:null,strength:7,bull:'CB buying + geo',bear:'Real rates spike',base:'Hedge demand',catalyst:'FOMC May 2026',date:'Mar 8',ret:null},
+  {t:'BX',r:'HOLD',rc:'rh',entry:132,now:null,target:140,stop:118,rr:null,strength:4,bull:'BREIT stabilizes',bear:'Redemption wave',base:'Wait for clarity',catalyst:'Q1 2026 distrib',date:'Mar 8',ret:null},
 ];
 const WATCHLIST = [{t:'COIN',th:'Crypto cycle + ETF flows (latest)'},{t:'ARM',th:'AI semis derivative (latest)'},{t:'PLTR',th:'Gov contracts + AI (latest)'}];
 const PORTFOLIO_RISK = [{m:'Overall Beta',v:'1.18'},{m:'Sector conc (IT)',v:'34%'},{m:'Geo (US)',v:'78%'}];
-function renderSignalsPage(){
-  document.getElementById('signalsConvictionBoard').innerHTML = SIGNALS_FULL.map(s=>{
-    let card = `<div class="signal-card"><div class="sc-ticker">${s.t}</div><div class="sc-meta">`;
-    card += `Entry $${s.entry} · Now $${s.now} · Target $${s.target} · Stop $${s.stop} · R/R ${s.rr} · Size: 2-4%`;
-    card += `</div><div class="sc-thesis">${SIGS.find(x=>x.t===s.t)?.th || s.base}</div>`;
-    card += `<div class="sc-meta">Thesis strength: ${s.strength}/10 </div><div class="meter-bar"><div class="meter-fill" style="width:${s.strength*10}%;background:var(--accent)"></div></div>`;
-    card += `<div class="sc-cases"><div class="sc-case"><div class="case-label">BULL</div>${s.bull}</div><div class="sc-case"><div class="case-label">BEAR</div>${s.bear}</div><div class="sc-case"><div class="case-label">BASE</div>${s.base}</div></div>`;
-    card += `<div class="sc-meta" style="margin-top:10px">Catalyst: ${s.catalyst}</div></div>`;
-    return card;
-  }).join('');
-  document.getElementById('signalsWatchlist').innerHTML = WATCHLIST.map(w=>`<div class="metric-row"><span style="color:var(--accent)">${w.t}</span><span>${w.th}</span></div>`).join('');
-  document.getElementById('portfolioRiskMetrics').innerHTML = PORTFOLIO_RISK.map(p=>`<div class="metric-row"><span>${p.m}</span><span>${p.v}</span></div>`).join('');
-  document.getElementById('signalsPerfTracker').innerHTML = SIGNALS_FULL.map(s=>`<div class="metric-row"><span>${s.t}</span><span>Signal ${s.date}</span><span class="${s.ret>=0?'up':'down'}">${s.ret>=0?'+':''}${s.ret}%</span></div>`).join('');
-}
 
 // SEARCH INDEX
 const SI={
@@ -2167,13 +2264,13 @@ const APEX_SIGNAL_NOTES = {
 let APEX_STOCK_SCORES = {};
 let APEX_ALPHA_EDIT = null;
 let APEX_ALPHA_ROWS = [
-  { date:'2026-03-04', symbol:'NVDA', direction:'Long', entry:842, current:875.4, thesis:'AI capex durability', status:'Open' },
-  { date:'2026-03-05', symbol:'XOM', direction:'Long', entry:114.2, current:118.3, thesis:'Iran oil premium', status:'Open' },
-  { date:'2026-03-06', symbol:'JPM', direction:'Short', entry:201.4, current:197.3, thesis:'NIM compression', status:'Open' }
+  { date:'2026-03-04', symbol:'NVDA', direction:'Long', entry:130, current:130, thesis:'AI capex durability', status:'Open' },
+  { date:'2026-03-05', symbol:'XOM', direction:'Long', entry:114.2, current:114.2, thesis:'Iran oil premium', status:'Open' },
+  { date:'2026-03-06', symbol:'JPM', direction:'Short', entry:290, current:290, thesis:'NIM compression', status:'Open' }
 ];
 
 function apexClamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-function apexNum(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+function apexNum(v) { if (v == null || v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
 function apexFmt(v, digits = 1) { return v == null || Number.isNaN(v) ? '—' : Number(v).toFixed(digits); }
 function apexPct(v, digits = 1) { return v == null || Number.isNaN(v) ? '—' : `${Number(v).toFixed(digits)}%`; }
 function apexShortMoney(v) {
@@ -2205,6 +2302,25 @@ async function apexFetchJSON(path) {
     if (!res.ok) return null;
     return await res.json();
   } catch (e) { return null; }
+}
+async function apexRenderMacroCalendarOverview() {
+  const host = document.getElementById('macroCalendarOverview');
+  if (!host) return;
+  const cal = await apexFetchJSON('/api/economic-calendar').catch(() => null);
+  const d = new Date();
+  const todayStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const events = (cal?.events || []).filter(e => (e.date || '') >= todayStr).slice(0, 8);
+  if (!events.length) {
+    host.innerHTML = '<div style="font-size:11px;color:var(--text3)">No upcoming macro events. Update scheduled dates in server.py or connect FRED release calendar.</div>';
+    return;
+  }
+  host.innerHTML = events.map(ev => {
+    const im = String(ev.importance || 'MED').toUpperCase();
+    const ic = im === 'HIGH' ? 'ih' : im === 'MED' ? 'im' : 'il';
+    const dlabel = apexShortDate(ev.date);
+    const title = String(ev.event || '').replace(/</g, '&lt;');
+    return `<div class="ev-item"><div class="ev-date">${dlabel}</div><div><div class="ev-title">${title}</div><span class="ev-imp ${ic}">${im}</span></div></div>`;
+  }).join('');
 }
 async function apexFetchCached(bucket, key, path) {
   if (key == null) {
@@ -2464,12 +2580,24 @@ function updateMacroRegimeFromOverview(data) {
   };
   if (data.fed_funds != null) set('macroMsFedFunds', data.fed_funds.toFixed(2) + '%', 'up');
   if (data.spread_2y10y != null) {
-    const inv = data.spread_2y10y < 0;
-    set('macroMsSpread', (inv ? '' : '+') + data.spread_2y10y.toFixed(2) + '%', inv ? 'down' : 'up');
+    const sp = data.spread_2y10y;
+    const abs = Math.abs(sp);
+    const isFlat = abs <= 0.10;
+    const valueStr = (sp >= 0 ? '+' : '') + sp.toFixed(2) + '%';
     const spreadEl = document.getElementById('macroMsSpread');
     if (spreadEl) {
+      const v = spreadEl.querySelector('.ms-value');
       const ch = spreadEl.querySelector('.ms-change');
-      if (ch) ch.innerHTML = inv ? '<span class="down">▼</span><span style="color:var(--red)"> INVERTED</span>' : '<span class="up">▲</span><span style="color:var(--text2)"> Steep</span>';
+      if (v) {
+        v.textContent = valueStr;
+        v.className = 'ms-value ' + (isFlat ? 'up' : sp < 0 ? 'down' : 'up');
+        v.style.color = isFlat ? 'var(--gold)' : sp < 0 ? '' : 'var(--green)';
+      }
+      if (ch) {
+        if (isFlat) ch.innerHTML = '<span style="color:var(--gold)">●</span><span style="color:var(--gold)"> Flat</span>';
+        else if (sp < 0) ch.innerHTML = '<span class="down">▼</span><span style="color:var(--red)"> INVERTED</span>';
+        else ch.innerHTML = '<span class="up">▲</span><span style="color:var(--green)"> Steep</span>';
+      }
     }
   }
   if (data.cpi_yoy != null) set('macroMsCpi', data.cpi_yoy.toFixed(1) + '%', null, 'var(--gold)');
@@ -2482,6 +2610,7 @@ async function renderOverviewExtensions() {
   apexRenderOverviewInsider();
   apexRenderEconomicSurprise();
   apexRenderPortfolioSnapshot();
+  apexRenderMacroCalendarOverview();
   apexRenderFearGreed(await apexFetchCached('fearGreed', null, '/api/feargreed'));
   apexRenderVixTerm(await apexFetchCached('vixTerm', null, '/api/vix-term'));
 }
@@ -2559,15 +2688,20 @@ async function apexRenderEarnings() {
   const el = document.getElementById('earningsIntel');
   if (!el) return;
   el.innerHTML = `<div style="padding:12px 16px;font-family:var(--mono);font-size:10px;color:var(--text3)">Loading earnings intelligence…</div>`;
+  const na = (v) => (v == null || v === '' || (typeof v === 'number' && !Number.isFinite(v)) ? 'N/A' : v);
   const rows = await Promise.all(US_STOCKS_FULL.map(async stock => {
     const data = await apexLoadEarnings(stock.t);
     const last = data?.history?.[0] || {};
     const guide = APEX_EARNINGS_GUIDE[stock.t] || { guidance:'Maintained', revisions:'Flat' };
-    const fmtNext = data?.next_earnings ? apexShortDate(data.next_earnings) : '—';
-    const surpriseClass = (last.eps_surprise_pct || 0) >= 0 ? 'up' : 'down';
-    const surpriseText = last.eps_surprise_pct != null ? `${Number(last.eps_surprise_pct).toFixed(1)}%` : '—';
-    const revBeat = (apexNum(last.revenue_actual) || 0) >= (apexNum(last.revenue_estimate) || Infinity);
-    return `<tr><td style="color:var(--accent)">${stock.t}</td><td>${fmtNext}</td><td>${last.eps_actual ?? '—'} / ${last.eps_estimate ?? '—'}</td><td class="${surpriseClass}">${surpriseText}</td><td class="${revBeat ? 'up' : 'down'}">${last.revenue_actual != null && last.revenue_estimate != null ? `${apexShortMoney(last.revenue_actual)} vs ${apexShortMoney(last.revenue_estimate)}` : '—'}</td><td>${guide.guidance}</td><td>${guide.revisions}</td><td>${apexStreak(data?.history)}</td></tr>`;
+    const fmtNext = data?.next_earnings ? apexShortDate(data.next_earnings) : 'N/A';
+    const surp = apexNum(last.eps_surprise_pct);
+    const surpriseClass = surp == null ? '' : surp >= 0 ? 'up' : 'down';
+    const surpriseTextFinal = surp == null ? 'N/A' : `${surp.toFixed(1)}%`;
+    const revA = apexNum(last.revenue_actual);
+    const revE = apexNum(last.revenue_estimate);
+    const revCell = (revA != null && revE != null) ? `${apexShortMoney(last.revenue_actual)} vs ${apexShortMoney(last.revenue_estimate)}` : 'N/A';
+    const revBeat = (revA != null && revE != null) ? revA >= revE : false;
+    return `<tr><td style="color:var(--accent)">${stock.t}</td><td>${fmtNext}</td><td>${na(last.eps_actual)} / ${na(last.eps_estimate)}</td><td class="${surpriseClass}">${surpriseTextFinal}</td><td class="${revA != null && revE != null ? (revBeat ? 'up' : 'down') : ''}">${revCell}</td><td>${guide.guidance}</td><td>${guide.revisions}</td><td>${apexStreak(data?.history)}</td></tr>`;
   }));
   el.innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Ticker</th><th>Next Earnings</th><th>EPS A / E</th><th>EPS Surprise</th><th>Revenue Surprise</th><th>Guidance</th><th>Revisions</th><th>Streak</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
@@ -2598,10 +2732,11 @@ async function apexRenderInstitutionalFlows() {
   const symbols = ['NVDA','MSFT','AAPL','JPM','XOM','META'];
   const rows = await Promise.all(symbols.map(async symbol => {
     const data = await apexLoadInstitutional(symbol);
-    const chg = apexNum(data?.ownership_qoq_change_pct);
+    const rawChg = data?.ownership_qoq_change_pct;
+    const chg = (rawChg === null || rawChg === undefined) ? null : apexNum(rawChg);
     const holders = (data?.top_holders || []).slice(0, 2).map(h => h.holder).join(', ') || '—';
-    const flag = chg == null ? 'Neutral' : chg > 0 ? 'Accumulating' : 'Distributing';
-    return `<tr><td style="color:var(--accent)">${symbol}</td><td>${apexPct(data?.institutional_ownership_pct,1)}</td><td class="${chg >= 0 ? 'up' : 'down'}">${chg == null ? '—' : `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`}</td><td>${holders}</td><td>${flag === 'Accumulating' ? '<span class="apex-badge green">Accumulating</span>' : flag === 'Distributing' ? '<span class="apex-badge red">Distributing</span>' : '<span class="apex-badge yellow">Neutral</span>'}</td></tr>`;
+    const flagHtml = chg == null ? '—' : (chg > 0 ? '<span class="apex-badge green">Accumulating</span>' : '<span class="apex-badge red">Distributing</span>');
+    return `<tr><td style="color:var(--accent)">${symbol}</td><td>${apexPct(data?.institutional_ownership_pct,1)}</td><td>${chg == null ? '—' : `<span class="${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span>`}</td><td>${holders}</td><td>${flagHtml}</td></tr>`;
   }));
   el.innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Ticker</th><th>Inst. Ownership</th><th>QoQ Change</th><th>Top Holders</th><th>Flag</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
@@ -2649,7 +2784,8 @@ renderEquitiesPage = function() {
   for(let i=0;i<CORR_TICKERS.length;i++){ corrHtml += `<div class="corr-cell header">${CORR_TICKERS[i]}</div>`; for(let j=0;j<CORR_TICKERS.length;j++){ const v=CORR_MATRIX[i][j]; const cls = v>=0.7 ? 'none' : ''; corrHtml+=`<div class="corr-cell ${cls}">${v.toFixed(2)}</div>`; } }
   corrHtml += '</div>';
   document.getElementById('corrMatrix').innerHTML = corrHtml;
-  document.getElementById('analystPanel').innerHTML = ANALYST_DATA.map(a=>`<div class="metric-row"><span style="color:var(--accent)">${a.t}</span><span>B ${a.buy} / H ${a.hold} / S ${a.sell}</span></div><div class="metric-row"><span>PT ${a.pt}</span><span class="${a.up>=0?'up':'down'}">${a.up>=0?'+':''}${a.up}% upside</span></div>`).join('');
+  apexLoadEquitiesMarketIndices();
+  apexLoadAnalystConsensusPanel();
   apexRenderStocksTable();
   apexRenderFactorPerformance();
   apexRenderRelativeStrength();
@@ -2662,14 +2798,22 @@ renderEquitiesPage = function() {
 
 function apexBuildYieldSvg(macro) {
   const tenors = ['3M','6M','1Y','2Y','3Y','5Y','7Y','10Y','20Y','30Y'];
-  const today = [5.44,5.38,5.12,macro?.treasury?.dgs2 ?? 4.90,4.68,4.52,4.58,macro?.treasury?.dgs10 ?? 4.72,4.82,macro?.treasury?.dgs30 ?? 4.88];
+  const t = macro?.treasury || {};
+  const d3 = t.dgs3mo != null ? Number(t.dgs3mo) : 5.44;
+  const d2 = t.dgs2 != null ? Number(t.dgs2) : 4.90;
+  const d5 = t.dgs5 != null ? Number(t.dgs5) : 4.52;
+  const d10 = t.dgs10 != null ? Number(t.dgs10) : 4.72;
+  const d30 = t.dgs30 != null ? Number(t.dgs30) : 4.88;
+  const mid01 = d3 + (d2 - d3) * 0.45;
+  const mid02 = d3 + (d2 - d3) * 0.78;
+  const today = [d3, mid01, mid02, d2, (d2 + d5) / 2, d5, (d5 + d10) / 2, d10, (d10 + d30) / 2, d30];
   const m3 = [5.32,5.24,5.02,4.76,4.61,4.55,4.60,4.69,4.80,4.86];
   const y1 = [5.56,5.43,5.08,4.51,4.22,4.05,4.01,4.08,4.34,4.24];
   const curves = [{ data:today, color:'var(--accent)', width:3 }, { data:m3, color:'#1d6f8a', width:2 }, { data:y1, color:'#5c6d79', width:2 }];
-  const minY = 3.8, maxY = 5.8, W = 860, H = 220, left = 44, bottom = 28, top = 14, innerW = W - left - 10, innerH = H - top - bottom;
+  const minY = 2.0, maxY = 6.0, W = 860, H = 220, left = 44, bottom = 28, top = 14, innerW = W - left - 10, innerH = H - top - bottom;
   const x = i => left + (innerW / (tenors.length - 1)) * i;
   const y = v => top + (maxY - v) / (maxY - minY) * innerH;
-  const axes = [4.0,4.5,5.0,5.5].map(val => `<line x1="${left}" y1="${y(val)}" x2="${W-10}" y2="${y(val)}" stroke="rgba(74,104,128,0.25)" /><text x="6" y="${y(val)+4}" fill="var(--text3)" font-family="var(--mono)" font-size="9">${val.toFixed(1)}%</text>`).join('');
+  const axes = [2.0, 3.0, 4.0, 5.0, 6.0].map(val => `<line x1="${left}" y1="${y(val)}" x2="${W-10}" y2="${y(val)}" stroke="rgba(74,104,128,0.25)" /><text x="6" y="${y(val)+4}" fill="var(--text3)" font-family="var(--mono)" font-size="9">${val.toFixed(1)}%</text>`).join('');
   const series = curves.map(curve => {
     const d = curve.data.map((val, idx) => `${idx === 0 ? 'M' : 'L'} ${x(idx)} ${y(val)}`).join(' ');
     return `<path d="${d}" fill="none" stroke="${curve.color}" stroke-width="${curve.width}" stroke-dasharray="1000" stroke-dashoffset="1000" style="animation:apexDraw 1.4s ease forwards;" />`;
@@ -2681,21 +2825,68 @@ function apexFedDotPlot() {
   const dots = [{ x:40, y:32, label:'2025', v:'4.6%' }, { x:150, y:58, label:'2026', v:'3.6%' }, { x:260, y:80, label:'Long', v:'2.9%' }];
   return `<svg viewBox="0 0 320 110" class="apex-dotplot"><line x1="20" y1="92" x2="300" y2="92" stroke="var(--border2)" />${dots.map(d => `<circle cx="${d.x}" cy="${d.y}" r="6" fill="var(--accent)" /><text x="${d.x}" y="104" text-anchor="middle" fill="var(--text3)" font-family="var(--mono)" font-size="9">${d.label}</text><text x="${d.x}" y="${d.y-10}" text-anchor="middle" fill="var(--text)" font-family="var(--mono)" font-size="9">${d.v}</text>`).join('')}</svg>`;
 }
+/** Macro yield spreads: bp from FRED (DGS10−DGS2, DGS10−DGS3MO, DGS30−DGS5). Flat = −10…+10 bp. */
+function apexMacroSpreadBox(label, bp) {
+  const n = Number(bp);
+  const disp = Number.isFinite(n) ? (n > 0 ? '+' : '') + String(Math.round(n)) + 'bp' : '—';
+  let badgeClass = 'yellow';
+  let text = '—';
+  let valClass = 'up';
+  if (!Number.isFinite(n)) {
+    return `<div class="apex-spread-box"><div class="label">${label}</div><div class="value ${valClass}">${disp}</div><span class="apex-badge ${badgeClass}">${text}</span></div>`;
+  }
+  if (n >= -10 && n <= 10) {
+    badgeClass = 'yellow';
+    text = 'Flat';
+  } else if (n < 0) {
+    badgeClass = 'red';
+    text = 'Inverted';
+    valClass = 'down';
+  } else {
+    badgeClass = 'green';
+    text = n > 50 ? 'Steep' : 'Normal';
+  }
+  return `<div class="apex-spread-box"><div class="label">${label}</div><div class="value ${valClass}">${disp}</div><span class="apex-badge ${badgeClass}">${text}</span></div>`;
+}
 renderMacroPage = async function() {
-  const macro = await apexFetchCached('macro', null, '/api/macro');
+  const macro = await apexFetchJSON('/api/macro').catch(() => ({}));
+  APEX_CACHE.macro = macro;
   const calendar = await apexLoadEconomicCalendar();
-  const spread2s10s = macro?.treasury?.dgs2 != null && macro?.treasury?.dgs10 != null ? ((macro.treasury.dgs10 - macro.treasury.dgs2) * 100).toFixed(0) : '-18';
-  const spread3m10y = macro?.treasury?.dgs10 != null ? ((macro.treasury.dgs10 - 5.44) * 100).toFixed(0) : '-72';
-  const spread5s30s = macro?.treasury?.dgs30 != null ? ((macro.treasury.dgs30 - 4.52) * 100).toFixed(0) : '+36';
-  document.getElementById('yieldCurveFull').innerHTML = apexBuildYieldSvg(macro) + `<div class="apex-spread-grid"><div class="apex-spread-box"><div class="label">2s10s</div><div class="value ${Number(spread2s10s) < 0 ? 'down' : 'up'}">${Number(spread2s10s) > 0 ? '+' : ''}${spread2s10s}bp</div><span class="apex-badge ${Number(spread2s10s) < 0 ? 'red' : 'green'}">${Number(spread2s10s) < 0 ? 'Inverted' : 'Normal'}</span></div><div class="apex-spread-box"><div class="label">3m10y</div><div class="value ${Number(spread3m10y) < 0 ? 'down' : 'up'}">${Number(spread3m10y) > 0 ? '+' : ''}${spread3m10y}bp</div><span class="apex-badge ${Number(spread3m10y) < 0 ? 'red' : 'green'}">${Number(spread3m10y) < 0 ? 'Inverted' : 'Normal'}</span></div><div class="apex-spread-box"><div class="label">5s30s</div><div class="value ${Number(spread5s30s) < 0 ? 'down' : 'up'}">${Number(spread5s30s) > 0 ? '+' : ''}${spread5s30s}bp</div><span class="apex-badge ${Number(spread5s30s) < 0 ? 'red' : 'green'}">${Number(spread5s30s) < 0 ? 'Flat' : 'Steep'}</span></div></div>`;
+  const ind = await apexFetchJSON('/api/indicators').catch(() => ({}));
+  const SC_FALLBACK = { gdp: 2.8, unemployment: 3.9, retail_mom: 0.6 };
+  const gdpN = ind.gdp != null ? ind.gdp : SC_FALLBACK.gdp;
+  const unN = ind.unemployment != null ? ind.unemployment : SC_FALLBACK.unemployment;
+  const retN = ind.retail_mom != null ? ind.retail_mom : SC_FALLBACK.retail_mom;
+  const tr = macro?.treasury || {};
+  const spread2s10s = tr.dgs2 != null && tr.dgs10 != null ? (tr.dgs10 - tr.dgs2) * 100 : null;
+  const spread3m10y = tr.dgs3mo != null && tr.dgs10 != null ? (tr.dgs10 - tr.dgs3mo) * 100 : null;
+  const spread5s30s = tr.dgs5 != null && tr.dgs30 != null ? (tr.dgs30 - tr.dgs5) * 100 : null;
+  const spreadGrid = apexMacroSpreadBox('2s10s', spread2s10s) + apexMacroSpreadBox('3m10y', spread3m10y) + apexMacroSpreadBox('5s30s', spread5s30s);
+  document.getElementById('yieldCurveFull').innerHTML = apexBuildYieldSvg(macro) + `<div class="apex-spread-grid">${spreadGrid}</div>`;
+  const foot = document.getElementById('macroYieldCurveFootnote');
+  if (foot && spread2s10s != null) {
+    const bp = Math.round(spread2s10s);
+    const lbl = (bp >= -10 && bp <= 10) ? 'Flat' : (bp < 0 ? 'Inverted' : (bp > 50 ? 'Steep' : 'Normal'));
+    foot.textContent = `— Current (solid) vs 6M ago (dashed) · 2Y/10Y (DGS10−DGS2): ${bp >= 0 ? '+' : ''}${bp}bp — ${lbl}`;
+  } else if (foot) {
+    foot.textContent = '— Current (solid) vs 6M ago (dashed) · 2Y/10Y (DGS10−DGS2): —';
+  }
+  const fed = macro?.fed || {};
+  const effStr = fed.effective != null ? fed.effective.toFixed(2) + '%' : '3.64%';
+  const rangeStr = fed.target_low != null && fed.target_high != null
+    ? `${fed.target_low.toFixed(2)}–${fed.target_high.toFixed(2)}% (target band)`
+    : '3.50–3.75% (target band)';
+  const realStr = fed.real_fed != null ? (fed.real_fed >= 0 ? '+' : '') + fed.real_fed.toFixed(2) + '%' : (fed.effective != null && fed.cpi_yoy != null ? ((fed.effective - fed.cpi_yoy) >= 0 ? '+' : '') + (Number(fed.effective) - Number(fed.cpi_yoy)).toFixed(2) + '%' : '~+0.5%');
+  const realCls = fed.real_fed != null ? (fed.real_fed >= 0 ? 'up' : 'down') : 'up';
   document.getElementById('fedTracker').innerHTML = `
     <div class="apex-stack" style="padding:12px 16px;">
-      <div class="metric-row"><span>Current rate</span><span style="font-family:var(--display);font-size:22px">5.33%</span></div>
-      <div class="metric-row"><span>Real Fed Funds</span><span class="up">+2.53%</span></div>
-      <div class="metric-row"><span>Taylor Rule</span><span>4.85% <span class="apex-badge red" style="margin-left:6px;">Fed tighter than rule</span></span></div>
+      <div class="metric-row"><span>Effective Fed Funds (DFF)</span><span style="font-family:var(--display);font-size:22px">${effStr}</span></div>
+      <div class="metric-row"><span>Fed target range</span><span>${rangeStr}</span></div>
+      <div class="metric-row"><span>Real Fed Funds (DFF − CPI YoY)</span><span class="${realCls}">${realStr}</span></div>
+      <div class="metric-row"><span>Taylor Rule</span><span>4.85% <span class="apex-badge red" style="margin-left:6px;">illustrative</span></span></div>
       ${apexFedDotPlot()}
       <div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Meeting</th><th>Hold</th><th>Cut</th></tr></thead><tbody><tr><td>May 7</td><td>58%</td><td>42%</td></tr><tr><td>Jun 18</td><td>49%</td><td>51%</td></tr><tr><td>Jul 30</td><td>37%</td><td>63%</td></tr></tbody></table></div>
-      <div class="apex-note">Past-cycle comparison: 2004–06 tightened into housing excess, 2015–18 normalized into low inflation, 2022–present remains the most restrictive real-rate regime of the three.</div>
+      <div class="apex-note">DFF / DFEDTARL/U from FRED (daily). Monthly FEDFUNDS can lag and mislead in the UI.</div>
     </div>`;
   const inflRows = [
     ['Shelter',4.8,'↑',42], ['Energy',1.1,'↓',8], ['Food',2.7,'→',11], ['Core Goods',0.6,'↓',7], ['Core Services ex-Shelter',4.2,'↑',32]
@@ -2704,40 +2895,61 @@ renderMacroPage = async function() {
   const events = (calendar?.events || []).slice(0, 8);
   const impBadge = (imp) => { const i = (imp || '').toUpperCase(); return i === 'HIGH' ? '<span class="apex-badge red">HIGH</span>' : i === 'MED' ? '<span class="apex-badge yellow">MED</span>' : '<span class="apex-badge yellow">MED</span>'; };
   const calTable = `<div class="apex-table-wrap"><table class="apex-table" style="width:100%;"><thead><tr><th style="min-width:80px;">Date</th><th style="min-width:160px;">Event</th><th style="min-width:50px;">Country</th><th style="min-width:70px;">Forecast</th><th style="min-width:70px;">Previous</th><th style="min-width:60px;">Importance</th></tr></thead><tbody>${events.map(ev => `<tr><td>${ev.date || '—'}</td><td>${ev.event || '—'}</td><td>${ev.country || '—'}</td><td>${ev.forecast ?? '—'}</td><td>${ev.previous ?? '—'}</td><td>${impBadge(ev.importance)}</td></tr>`).join('') || '<tr><td colspan="6">No calendar events available.</td></tr>'}</tbody></table></div>${calendar?.source === 'scheduled' ? '<div style="margin-top:8px;font-size:10px;color:var(--text3);">Scheduled · Verified 2026-03-13</div>' : ''}`;
-  document.getElementById('econIndicators').innerHTML = `<div class="indicator-block">${ECON_INDICATORS.map(e=>`<div class="indicator-item"><div class="l">${e.l}</div><div class="v">${e.v}</div><div class="c ${e.u?'up':'down'}">${e.c}</div></div>`).join('')}</div>`;
+  const econCards = ECON_INDICATORS.map(function(e) {
+    if (e.l === 'GDP Growth') return { l: e.l, v: gdpN + '%', c: e.c, u: e.u };
+    if (e.l === 'Unemployment') return { l: e.l, v: unN + '%', c: e.c, u: e.u };
+    if (e.l === 'Retail Sales') return { l: e.l, v: (retN >= 0 ? '+' : '') + retN + '%', c: e.c, u: e.u };
+    return e;
+  });
+  document.getElementById('econIndicators').innerHTML = `<div class="indicator-block">${econCards.map(e=>`<div class="indicator-item"><div class="l">${e.l}</div><div class="v">${e.v}</div><div class="c ${e.u?'up':'down'}">${e.c}</div></div>`).join('')}</div>`;
   const calHost = document.getElementById('econCalendarSnapshot');
   if (calHost) calHost.innerHTML = `<div class="apex-mini-heading" style="margin-bottom:6px;">Economic Calendar Snapshot</div>${calTable}`;
-  const indicators = await apexFetchJSON('/api/indicators').catch(() => null);
-  const ind = indicators || {};
+  const yieldBp = spread2s10s != null ? Math.round(spread2s10s) : (ind.yield_curve_2s10s != null ? ind.yield_curve_2s10s : null);
   const fmt = (v) => (v == null ? '—' : (typeof v === 'number' && v % 1 !== 0) ? v.toFixed(2) : String(v));
   const signal = (name, val) => {
     if (val == null) return { dot: 'var(--text3)', text: '—', impl: '—' };
     const v = Number(val);
-    if (name === 'GDP') return v > 3 ? { dot: 'var(--green)', text: 'Strong', impl: 'Expansion' } : v >= 1 ? { dot: 'var(--gold)', text: 'Slowing', impl: 'Late cycle' } : { dot: 'var(--red)', text: 'Contraction', impl: 'Risk off' };
-    if (name === 'Unemployment') return v < 4 ? { dot: 'var(--green)', text: 'Tight Labour', impl: 'Wage pressure' } : v <= 5 ? { dot: 'var(--gold)', text: 'Softening', impl: 'Watch' } : { dot: 'var(--red)', text: 'Rising', impl: 'Recession risk' };
+    if (name === 'GDP') return v > 3 ? { dot: 'var(--green)', text: 'Strong', impl: 'Expansion' } : v >= 2 ? { dot: 'var(--green)', text: 'Growth', impl: 'Growth' } : v >= 1 ? { dot: 'var(--gold)', text: 'Slowing', impl: 'Late cycle' } : { dot: 'var(--red)', text: 'Contraction', impl: 'Risk off' };
+    if (name === 'Unemployment') {
+      if (v >= 3.5 && v <= 4.5) return { dot: 'var(--gold)', text: 'Watch', impl: 'Watch' };
+      if (v < 4) return { dot: 'var(--green)', text: 'Tight Labour', impl: 'Wage pressure' };
+      if (v <= 5) return { dot: 'var(--gold)', text: 'Softening', impl: 'Watch' };
+      return { dot: 'var(--red)', text: 'Rising', impl: 'Recession risk' };
+    }
     if (name === 'PMI Mfg' || name === 'PMI Services') return v > 50 ? { dot: 'var(--green)', text: 'Expanding', impl: 'Growth' } : { dot: 'var(--red)', text: 'Contracting', impl: 'Slowdown' };
-    if (name === 'Retail Sales') return v > 0.4 ? { dot: 'var(--green)', text: 'Healthy', impl: 'Consumer strong' } : v >= 0 ? { dot: 'var(--gold)', text: 'Weak', impl: 'Soft' } : { dot: 'var(--red)', text: 'Contracting', impl: 'Weak demand' };
+    if (name === 'Retail Sales') return v > 0.4 ? { dot: 'var(--green)', text: 'Expanding', impl: 'Expanding' } : v >= 0 ? { dot: 'var(--gold)', text: 'Weak', impl: 'Soft' } : { dot: 'var(--red)', text: 'Contracting', impl: 'Weak demand' };
     if (name === 'Real Rate') return v > 1.5 ? { dot: 'var(--red)', text: 'Restrictive', impl: 'Tight financial conditions' } : v >= 0 ? { dot: 'var(--gold)', text: 'Neutral', impl: 'Balanced' } : { dot: 'var(--green)', text: 'Accommodative', impl: 'Stimulative' };
-    if (name === 'Yield Curve') return v < 0 ? { dot: 'var(--red)', text: 'Inverted', impl: 'Recession signal' } : v < 30 ? { dot: 'var(--gold)', text: 'Flat', impl: 'Caution' } : { dot: 'var(--green)', text: 'Normal', impl: 'Steep' };
+    if (name === 'Yield Curve') {
+      if (v >= -10 && v <= 10) return { dot: 'var(--gold)', text: 'Flat', impl: 'Caution' };
+      if (v < 0) return { dot: 'var(--red)', text: 'Inverted', impl: 'Recession signal' };
+      return { dot: 'var(--green)', text: v > 50 ? 'Steep' : 'Normal', impl: v > 50 ? 'Steep curve' : 'Positive spread' };
+    }
     if (name === 'CPI') return v < 2 ? { dot: 'var(--green)', text: 'On target', impl: 'Fed satisfied' } : v <= 3 ? { dot: 'var(--gold)', text: 'Sticky', impl: 'Higher for longer' } : { dot: 'var(--red)', text: 'Hot', impl: 'Hawkish Fed' };
     return { dot: 'var(--text3)', text: '—', impl: '—' };
   };
   const scorecardRows = [
-    ['GDP', ind.gdp != null ? ind.gdp + '%' : null, 'GDP'],
-    ['Unemployment', ind.unemployment != null ? ind.unemployment + '%' : null, 'Unemployment'],
+    ['GDP', gdpN + '%', 'GDP'],
+    ['Unemployment', unN + '%', 'Unemployment'],
     ['PMI Mfg', ind.pmi_mfg, 'PMI Mfg'],
     ['PMI Services', ind.pmi_services, 'PMI Services'],
-    ['Retail Sales', ind.retail_mom != null ? ind.retail_mom + '%' : null, 'Retail Sales'],
+    ['Retail Sales', retN + '%', 'Retail Sales'],
     ['Real Rate', ind.real_rate != null ? ind.real_rate + '%' : null, 'Real Rate'],
-    ['Yield Curve', ind.yield_curve_2s10s != null ? ind.yield_curve_2s10s + 'bp' : null, 'Yield Curve'],
+    ['Yield Curve', yieldBp != null ? yieldBp + 'bp' : null, 'Yield Curve'],
     ['CPI', ind.cpi_yoy != null ? ind.cpi_yoy + '%' : null, 'CPI'],
   ];
-  const scorecardHtml = `<div class="apex-table-wrap" style="padding:0 16px;"><table class="apex-table"><thead><tr><th>Indicator</th><th>Value</th><th>● Signal</th><th>Implication</th></tr></thead><tbody>${scorecardRows.map(([label, val, key]) => { const s = signal(key, key === 'GDP' ? ind.gdp : key === 'Unemployment' ? ind.unemployment : key === 'PMI Mfg' ? ind.pmi_mfg : key === 'PMI Services' ? ind.pmi_services : key === 'Retail Sales' ? ind.retail_mom : key === 'Real Rate' ? ind.real_rate : key === 'Yield Curve' ? ind.yield_curve_2s10s : ind.cpi_yoy); return `<tr><td>${label}</td><td>${fmt(val)}</td><td><span style="color:${s.dot}">●</span> ${s.text}</td><td style="font-size:10px;color:var(--text2)">${s.impl}</td></tr>`; }).join('')}</tbody></table></div><div style="padding:8px 16px;font-size:10px;color:var(--text3);">Updated ${ind.last_updated ? new Date(ind.last_updated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—'}</div>`;
+  const scorecardHtml = `<div class="apex-table-wrap" style="padding:0 16px;"><table class="apex-table"><thead><tr><th>Indicator</th><th>Value</th><th>● Signal</th><th>Implication</th></tr></thead><tbody>${scorecardRows.map(([label, val, key]) => { const s = signal(key, key === 'GDP' ? gdpN : key === 'Unemployment' ? unN : key === 'PMI Mfg' ? ind.pmi_mfg : key === 'PMI Services' ? ind.pmi_services : key === 'Retail Sales' ? retN : key === 'Real Rate' ? ind.real_rate : key === 'Yield Curve' ? yieldBp : ind.cpi_yoy); return `<tr><td>${label}</td><td>${fmt(val)}</td><td><span style="color:${s.dot}">●</span> ${s.text}</td><td style="font-size:10px;color:var(--text2)">${s.impl}</td></tr>`; }).join('')}</tbody></table></div><div style="padding:8px 16px;font-size:10px;color:var(--text3);">Updated ${ind.last_updated ? new Date(ind.last_updated).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—'}</div>`;
   document.getElementById('macroScorecard').innerHTML = scorecardHtml;
+  const pr = macro?.policy_rates || {};
+  const fedDisplay = fed.target_low != null && fed.target_high != null
+    ? `${fed.target_low.toFixed(2)}–${fed.target_high.toFixed(2)}%`
+    : (fed.effective != null ? fed.effective.toFixed(2) + '%' : '3.50–3.75%');
   const globalRows = [
-    ['Fed','5.33%','Held Mar 19','May 7','Hold / late cut','hawkish'], ['ECB','3.75%','-25bp Mar 6','Apr 17','More easing','dovish'],
-    ['BOE','5.25%','Held Feb 6','Mar 19','Hold','neutral'], ['BOJ','0.10%','Held Feb 20','Apr 25','Slow hikes','hawkish'],
-    ['BOC','4.50%','Held Mar 5','Apr 16','Cut bias','dovish'], ['RBA','4.35%','Held Feb 18','Apr 1','Hold','neutral']
+    ['Fed', fedDisplay, 'Held Mar 2026', 'May 7', '—', 'neutral'],
+    ['ECB', pr.ecb != null ? pr.ecb.toFixed(2) + '%' : '2.65%', '-25bp Mar 6', 'Apr 17', '—', 'neutral'],
+    ['BOE', pr.boe != null ? pr.boe.toFixed(2) + '%' : '4.50%', 'Held Feb 6', 'Mar 19', '—', 'neutral'],
+    ['BOJ', pr.boj != null ? pr.boj.toFixed(2) + '%' : '0.50%', 'Held Feb 20', 'Apr 25', '—', 'neutral'],
+    ['BOC', pr.boc != null ? pr.boc.toFixed(2) + '%' : '4.50%', 'Held Mar 5', 'Apr 16', 'Cut bias', 'dovish'],
+    ['RBA', pr.rba != null ? pr.rba.toFixed(2) + '%' : '4.35%', 'Held Feb 18', 'Apr 1', 'Hold', 'neutral'],
   ];
   document.getElementById('globalRates').innerHTML = `<div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Bank</th><th>Current Rate</th><th>Last Change</th><th>Next Meeting</th><th>Market Expects</th><th>Bias</th></tr></thead><tbody>${globalRows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5] === 'hawkish' ? '<span class="apex-badge red">hawkish</span>' : r[5] === 'dovish' ? '<span class="apex-badge green">dovish</span>' : '<span class="apex-badge yellow">neutral</span>'}</td></tr>`).join('')}</tbody></table></div>`;
   document.getElementById('currencyDashboard').innerHTML = `<div style="padding:12px 16px;"><div class="metric-row"><span>DXY</span><span style="font-family:var(--display);font-size:22px">103.4</span><span class="down">↓ mild downtrend</span></div><div class="apex-table-wrap" style="margin-top:10px;"><table class="apex-table"><thead><tr><th>Pair</th><th>Spot</th><th>1D</th><th>1W</th><th>1M</th></tr></thead><tbody><tr><td>EUR/USD</td><td>1.084</td><td class="up">+0.1%</td><td class="up">+0.4%</td><td class="up">+1.1%</td></tr><tr><td>USD/JPY</td><td>149.2</td><td class="down">-0.3%</td><td class="down">-0.8%</td><td class="up">+0.6%</td></tr><tr><td>GBP/USD</td><td>1.264</td><td class="up">+0.1%</td><td class="up">+0.5%</td><td class="up">+1.2%</td></tr><tr><td>AUD/USD</td><td>0.672</td><td class="up">+0.2%</td><td class="up">+0.7%</td><td class="up">+1.8%</td></tr><tr><td>USD/CAD</td><td>1.351</td><td class="down">-0.1%</td><td class="down">-0.4%</td><td class="up">+0.2%</td></tr></tbody></table></div><div class="apex-mini-heading" style="margin-top:12px;">Carry Trades</div><div class="apex-carry-list"><div>Long MXN / short JPY: yield differential remains the cleanest carry.</div><div>Long INR / short EUR: stable carry with softer ECB path.</div><div>Long BRL / short CHF: high carry but materially higher headline risk.</div></div><div class="apex-note" style="margin-top:10px">PPP note: JPY screens undervalued vs USD, CHF screens rich after safe-haven inflows.</div></div>`;
@@ -2866,16 +3078,62 @@ function apexExportAlphaCSV() {
   a.href = url; a.download = 'apex-alpha-tracker.csv'; a.click();
   URL.revokeObjectURL(url);
 }
-renderSignalsPage = function() {
+function apexFmtSignalNow(v) {
+  if (v == null || !Number.isFinite(Number(v))) return '—';
+  return Number(v).toFixed(2);
+}
+function apexFmtSignalRR(rr) {
+  if (rr == null || !Number.isFinite(Number(rr))) return '—';
+  return Number(rr).toFixed(1);
+}
+async function apexRefreshSignalsQuotes() {
+  if (typeof SIGNALS_FULL === 'undefined' || !SIGNALS_FULL.length || typeof fetchProxyQuotes !== 'function') return;
+  const quotes = await fetchProxyQuotes(SIGNALS_FULL.map(function(s) { return s.t; }));
+  SIGNALS_FULL.forEach(function(s) {
+    var q = quotes[s.t];
+    if (!q || q.price == null || !Number.isFinite(Number(q.price))) {
+      s.now = null;
+      s.rr = null;
+      s.ret = null;
+      return;
+    }
+    var now = Number(q.price);
+    s.now = now;
+    var risk = now - s.stop;
+    var reward = s.target - now;
+    if (risk > 0 && Number.isFinite(reward)) {
+      s.rr = Math.round((reward / risk) * 10) / 10;
+    } else {
+      s.rr = null;
+    }
+    s.ret = Math.round(((now - s.entry) / s.entry) * 1000) / 10;
+  });
+  if (typeof APEX_ALPHA_ROWS !== 'undefined') {
+    APEX_ALPHA_ROWS.forEach(function(r) {
+      var q = quotes[r.symbol];
+      if (q && q.price != null && Number.isFinite(Number(q.price))) r.current = Number(q.price);
+    });
+  }
+}
+function apexRenderSignalsPageDOM() {
   document.getElementById('signalsConvictionBoard').innerHTML = SIGNALS_FULL.map(s => {
     const note = APEX_SIGNAL_NOTES[s.t] || { summary:s.base, metrics:[], dates:[], size:'Size TBD', corr:'Correlation TBD' };
-    return `<div class="signal-card"><div class="sc-ticker">${s.t}</div><div class="sc-meta">Entry $${s.entry} · Now $${s.now} · Target $${s.target} · Stop $${s.stop} · R/R ${s.rr} · Size: 2-4%</div><div class="sc-thesis">${note.summary}</div><div class="sc-meta">Thesis strength: ${s.strength}/10</div><div class="meter-bar"><div class="meter-fill" style="width:${s.strength*10}%;background:var(--accent)"></div></div><div class="apex-collapse"><div class="apex-cols-3"><div class="sc-case"><div class="case-label">Bull</div><div>${s.bull}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Demand remains resilient</div><div>Operating leverage expands</div><div>Valuation remains supported</div></div></div><div class="sc-case"><div class="case-label">Base</div><div>${s.base}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Consensus tracks current guide</div><div>Macro stays late cycle</div><div>Risk premium remains moderate</div></div></div><div class="sc-case"><div class="case-label">Bear</div><div>${s.bear}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Multiple compresses</div><div>Earnings revisions fade</div><div>Liquidity worsens</div></div></div></div><div class="apex-cols-2" style="margin-top:12px"><div><div class="apex-mini-heading">Key Metrics To Watch</div><div class="apex-bullet-list">${note.metrics.map(x=>`<div>${x}</div>`).join('')}</div><div class="apex-mini-heading" style="margin-top:12px">Catalyst Calendar</div><div class="apex-bullet-list">${note.dates.map(x=>`<div>${x}</div>`).join('')}</div></div><div><div class="apex-mini-heading">Position Sizing Rationale</div><div class="apex-note">${note.size}</div><div class="apex-mini-heading" style="margin-top:12px">Correlation Risk Notes</div><div class="apex-note">${note.corr}</div></div></div></div></div>`;
+    return `<div class="signal-card"><div class="sc-ticker">${s.t}</div><div class="sc-meta">Entry $${s.entry} · Now $${apexFmtSignalNow(s.now)} · Target $${s.target} · Stop $${s.stop} · R/R ${apexFmtSignalRR(s.rr)} · Size: 2-4%</div><div class="sc-thesis">${note.summary}</div><div class="sc-meta">Thesis strength: ${s.strength}/10</div><div class="meter-bar"><div class="meter-fill" style="width:${s.strength*10}%;background:var(--accent)"></div></div><div class="apex-collapse"><div class="apex-cols-3"><div class="sc-case"><div class="case-label">Bull</div><div>${s.bull}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Demand remains resilient</div><div>Operating leverage expands</div><div>Valuation remains supported</div></div></div><div class="sc-case"><div class="case-label">Base</div><div>${s.base}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Consensus tracks current guide</div><div>Macro stays late cycle</div><div>Risk premium remains moderate</div></div></div><div class="sc-case"><div class="case-label">Bear</div><div>${s.bear}</div><div class="apex-bullet-list" style="margin-top:8px"><div>Multiple compresses</div><div>Earnings revisions fade</div><div>Liquidity worsens</div></div></div></div><div class="apex-cols-2" style="margin-top:12px"><div><div class="apex-mini-heading">Key Metrics To Watch</div><div class="apex-bullet-list">${note.metrics.map(x=>`<div>${x}</div>`).join('')}</div><div class="apex-mini-heading" style="margin-top:12px">Catalyst Calendar</div><div class="apex-bullet-list">${note.dates.map(x=>`<div>${x}</div>`).join('')}</div></div><div><div class="apex-mini-heading">Position Sizing Rationale</div><div class="apex-note">${note.size}</div><div class="apex-mini-heading" style="margin-top:12px">Correlation Risk Notes</div><div class="apex-note">${note.corr}</div></div></div></div></div>`;
   }).join('');
   document.getElementById('signalsWatchlist').innerHTML = WATCHLIST.map(w=>`<div class="metric-row"><span style="color:var(--accent)">${w.t}</span><span>${w.th}</span></div>`).join('');
   const beta = SIGNALS_FULL.reduce((sum, s) => sum + (parseFloat((US_STOCKS_FULL.find(x => x.t === s.t)?.beta) || (s.t === 'GLD' ? '0.18' : '1.00'))), 0) / SIGNALS_FULL.length;
   document.getElementById('portfolioRiskMetrics').innerHTML = `<div style="padding:12px 16px;"><div class="metric-row"><span>Portfolio beta</span><span style="font-family:var(--display);font-size:22px">${beta.toFixed(2)}</span></div><div class="apex-mini-heading" style="margin-top:10px">Sector Concentration</div><div class="apex-stack"><div class="apex-breadth-row"><span>Technology</span><div class="apex-spark"><div class="apex-mini-bar"><span style="width:36%;background:var(--accent)"></span></div></div><span>36%</span></div><div class="apex-breadth-row"><span>Financials</span><div class="apex-spark"><div class="apex-mini-bar"><span style="width:24%;background:var(--green)"></span></div></div><span>24%</span></div><div class="apex-breadth-row"><span>Energy</span><div class="apex-spark"><div class="apex-mini-bar"><span style="width:14%;background:var(--oil)"></span></div></div><span>14%</span></div></div><div class="apex-mini-heading" style="margin-top:12px">Factor Tilts</div><div class="apex-note">Net tilt remains long quality growth with a tactical energy and gold hedge; low-vol exposure is underweight.</div><div class="apex-mini-heading" style="margin-top:12px">Correlation Heatmap</div>${apexCorrelationHeatmap()}<div class="apex-mini-heading" style="margin-top:12px">Scenario Analysis</div><div class="apex-table-wrap"><table class="apex-table"><thead><tr><th>Scenario</th><th>Est. Return</th></tr></thead><tbody><tr><td>Soft landing</td><td class="up">+11%</td></tr><tr><td>Recession</td><td class="down">-14%</td></tr><tr><td>Stagflation</td><td class="down">-6%</td></tr><tr><td>Risk-off shock</td><td class="down">-11%</td></tr></tbody></table></div><div class="metric-row" style="margin-top:12px"><span>VaR (1M, 95%)</span><span class="down">-8.6%</span></div><div class="metric-row"><span>Max drawdown est.</span><span class="down">-17.5%</span></div></div>`;
-  document.getElementById('signalsPerfTracker').innerHTML = SIGNALS_FULL.map(s=>`<div class="metric-row"><span>${s.t}</span><span>Signal ${s.date}</span><span class="${s.ret>=0?'up':'down'}">${s.ret>=0?'+':''}${s.ret}%</span></div>`).join('');
+  document.getElementById('signalsPerfTracker').innerHTML = SIGNALS_FULL.map(s => {
+    const retOk = s.ret != null && Number.isFinite(s.ret);
+    const retCls = retOk ? (s.ret >= 0 ? 'up' : 'down') : '';
+    const retStr = retOk ? ((s.ret >= 0 ? '+' : '') + s.ret.toFixed(1) + '%') : '—';
+    return `<div class="metric-row"><span>${s.t}</span><span>Signal ${s.date}</span><span class="${retCls}">${retStr}</span></div>`;
+  }).join('');
   apexRenderAlphaTracker();
+}
+renderSignalsPage = async function() {
+  await apexRefreshSignalsQuotes().catch(function() {});
+  apexRenderSignalsPageDOM();
 };
 
 aiAddMessage = function(role, text, meta) {
@@ -2948,12 +3206,8 @@ refreshLiveData = async function() {
       apexFetchJSON('/api/feargreed').catch(() => null),
     ]);
     updateMacroRegimeFromOverview(overview);
-    if (commodities && typeof commodities.gold === 'object' && commodities.gold.price != null && typeof COMD !== 'undefined' && COMD.length >= 4) {
-      const map = [{ key:'gold', i:0 }, { key:'silver', i:1 }, { key:'wti', i:2 }, { key:'brent', i:3 }];
-      map.forEach(({ key, i })=>{
-        const c = commodities[key];
-        if (c && c.price != null) { COMD[i].price = c.price >= 1000 ? '$' + Math.round(c.price).toLocaleString() : '$' + Number(c.price).toFixed(2); COMD[i].chg = c.change_pct || '—'; COMD[i].u = (c.change != null ? c.change >= 0 : (c.change_pct || '').indexOf('+') >= 0) ? 1 : 0; }
-      });
+    if (commodities && typeof COMD !== 'undefined' && COMD.length >= 4) {
+      apexApplyCommoditiesCOMD(COMD, commodities);
       const commEl = document.getElementById('commods');
       if (commEl) commEl.innerHTML = COMD.map(x=>`<div class="com-row" onclick="qs('${x.q}')"><div class="com-icon">${x.icon}</div><div style="flex:1"><div class="com-name" style="color:${x.col}">${x.name}</div><div class="com-unit">${x.unit}</div><div class="com-bar"><div class="com-fill" style="width:${x.w}%;background:linear-gradient(90deg,${x.grad})"></div></div></div><div style="text-align:right"><div class="com-price" style="color:${x.col}">${x.price}</div><div class="${x.u?'up':'down'}" style="font-family:var(--mono);font-size:11px">${x.chg}</div><div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${x.range}</div></div></div>`).join('');
     }
@@ -2964,6 +3218,12 @@ refreshLiveData = async function() {
     apexRenderOverviewInsider();
     apexRenderEconomicSurprise();
     apexRenderPortfolioSnapshot();
+    apexRenderMacroCalendarOverview();
+    await apexRefreshResearchConvictionPrices().catch(() => {});
+    await apexRefreshSignalsQuotes().catch(() => {});
+    if (document.getElementById('signalsPage') && document.getElementById('signalsPage').classList.contains('active')) {
+      apexRenderSignalsPageDOM();
+    }
   } catch (e) { console.warn('APEX refresh extras:', e); }
   const lu = document.getElementById('lastUpdated');
   if (lu) { lu.textContent = 'Updated ' + new Date().toLocaleTimeString(); lu.classList.add('live'); }
