@@ -1,0 +1,56 @@
+# Cursor Rules — Project Conventions
+
+## Commit Convention (STRICT)
+
+When making git commits, ALWAYS follow this exact format:
+
+### Commit message format:
+```
+<type>: <short description of what changed>
+```
+
+### Types (use only these):
+- `feat` — new feature or endpoint or functionality
+- `fix` — bug fix
+- `refactor` — restructuring code without changing behavior
+- `data` — changes to data sources, API integrations, field mappings
+- `ui` — frontend/dashboard/HTML/CSS changes
+- `docs` — documentation, comments, README
+- `config` — environment, dependencies, config files
+
+### Rules:
+1. Messages must be lowercase, no period at the end
+2. Keep messages under 60 characters
+3. Describe WHAT changed, not HOW — the diff shows the how
+4. One commit = one logical change. Do NOT bundle unrelated changes
+5. Never use vague messages like "updates", "changes", "fix stuff", "wip"
+
+### Good examples:
+```
+feat: add insider trades endpoint with SEC EDGAR mapping
+fix: commodity price returning null for gold futures
+refactor: extract FRED API calls into separate handler
+data: switch institutional holdings to polygon API
+ui: add sentiment gauge to company overview panel
+config: add eodhd api key to env
+```
+
+### Bad examples (NEVER do these):
+```
+updates
+fixed stuff
+changes to server
+wip
+misc
+```
+
+### Commit frequency:
+- Commit after completing ONE logical unit of work
+- If you can describe it in one sentence, that is one commit
+- Do NOT batch multiple unrelated changes into one commit
+- Do NOT commit after every single line change
+
+### Before committing:
+- Make sure the code runs without errors
+- Do not commit broken or half-finished code
+- If work is in progress, use: `git stash` instead of committing
