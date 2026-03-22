@@ -1,3 +1,7 @@
 # API keys — never commit these
 .env
 finance-ai/.env
+
+__pycache__/
+*.pyc
+.DS_Store
