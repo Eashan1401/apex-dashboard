@@ -154,7 +154,15 @@
 
   /* NEWS */
   .news-panel{grid-column:4;grid-row:1/5;display:flex;flex-direction:column;align-self:stretch;min-height:0;overflow:hidden;}
-  .news-feed{flex:1;overflow-y:auto;min-height:0;}
+  .news-feed{
+    flex:1;
+    min-height:0;
+    max-height:600px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    scrollbar-width:thin;
+    scrollbar-color:#1f1f21 #0a0a0b;
+  }
   .news-item{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 150ms ease;}
   .news-item:hover{background:var(--hover);}
   .news-item.breaking::before{content:'BREAKING';font-family:var(--mono);font-size:8px;letter-spacing:0.05em;color:var(--red);background:rgba(239,68,68,0.1);padding:2px 6px;border-radius:999px;display:inline-block;margin-bottom:5px;}
@@ -559,6 +567,7 @@
     <button class="nav-tab" data-page="funds">Funds</button>
     <button class="nav-tab" data-page="fixedIncome">Fixed Income</button>
     <button class="nav-tab" data-page="signals">Signals</button>
+    <button class="nav-tab" data-page="sentiment">Sentiment</button>
     <button class="nav-tab" data-page="ai">⬡ AI</button>
   </div>
   <div class="header-right">
@@ -1137,6 +1146,22 @@
   </div>
 </div>
 
+<!-- EARNINGS SENTIMENT PAGE -->
+<div id="sentimentPage" class="tab-page">
+  <div class="page-title">EARNINGS SENTIMENT <span style="font-family:var(--mono);font-size:12px;color:var(--text3);font-weight:normal;letter-spacing:1px;">— FinBERT + Llama 3.3 · SEC EDGAR 10-Q</span></div>
+
+  <div class="card" style="max-width:960px;">
+    <div class="card-header"><span class="card-title">Analyze Filing Sentiment</span><span class="card-badge">10-Q MD&A · RISK FACTORS · NOTES</span></div>
+    <div style="padding:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <input type="text" id="sentimentTicker" placeholder="Enter ticker (e.g. NVDA)" style="width:180px;padding:10px;font-family:var(--mono);font-size:13px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;text-transform:uppercase;outline:none;" onkeydown="if(event.key==='Enter')runSentiment()">
+      <button onclick="runSentiment()" id="sentimentRunBtn" style="background:var(--accent);color:#fff;border:none;padding:10px 20px;font-family:var(--mono);font-size:11px;letter-spacing:2px;font-weight:600;cursor:pointer;border-radius:6px;transition:opacity 150ms;">ANALYZE</button>
+      <span id="sentimentStatus" style="font-family:var(--mono);font-size:11px;color:var(--text3);"></span>
+    </div>
+  </div>
+
+  <div id="sentimentResults" style="max-width:960px;margin-top:16px;"></div>
+</div>
+
 <!-- AI CHAT PAGE -->
 <div id="aiPage" class="tab-page">
   <div class="page-title">AI ANALYST <span style="font-family:var(--mono);font-size:12px;color:var(--text3);font-weight:normal;letter-spacing:1px;">Powered by Groq — Llama 3.3 70B</span></div>
@@ -1209,7 +1234,138 @@ function updateClock(){const n=new Date();document.getElementById('clock').textC
 setInterval(updateClock,1000);updateClock();
 
 // NAV TABS — switch between Overview and dedicated tab pages
-const PAGE_IDS = { overview: 'overviewPage', equities: 'equitiesPage', macro: 'macroPage', funds: 'fundsPage', fixedIncome: 'fixedIncomePage', signals: 'signalsPage', ai: 'aiPage' };
+const PAGE_IDS = { overview: 'overviewPage', equities: 'equitiesPage', macro: 'macroPage', funds: 'fundsPage', fixedIncome: 'fixedIncomePage', signals: 'signalsPage', sentiment: 'sentimentPage', ai: 'aiPage' };
+
+function sentimentVerdictStyle(verdict) {
+  const v = verdict.toUpperCase();
+  if (v === 'BULLISH') return 'background:#166534;color:#4ade80;';
+  if (v === 'SLIGHTLY BULLISH') return 'background:#14532d;color:#86efac;';
+  if (v === 'NEUTRAL') return 'background:#422006;color:#fbbf24;';
+  if (v === 'SLIGHTLY BEARISH') return 'background:#431407;color:#fb923c;';
+  if (v === 'BEARISH') return 'background:#450a0a;color:#f87171;';
+  return 'background:#27272a;color:#a1a1aa;';
+}
+
+function sentimentBar(pos, neg, neu) {
+  const p = parseFloat(pos) || 0;
+  const n = parseFloat(neg) || 0;
+  const u = parseFloat(neu) || 0;
+  return `<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:#27272a;margin:8px 0;">
+    <div style="width:${p}%;background:#4ade80;" title="Positive ${pos}"></div>
+    <div style="width:${n}%;background:#f87171;" title="Negative ${neg}"></div>
+    <div style="width:${u}%;background:#3f3f46;" title="Neutral ${neu}"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--text3);">
+    <span style="color:#4ade80;">▲ ${pos}</span>
+    <span style="color:#f87171;">▼ ${neg}</span>
+    <span style="color:#71717a;">● ${neu}</span>
+  </div>`;
+}
+
+function sentimentQuotes(quotes, type) {
+  if (!quotes || quotes.length === 0) return '<div style="padding:8px;color:var(--text3);font-family:var(--mono);font-size:11px;">No signals detected</div>';
+  const borderColor = type === 'bullish' ? '#4ade80' : '#f87171';
+  return quotes.map(q => `<div style="border-left:3px solid ${borderColor};padding:8px 12px;margin:6px 0;background:var(--bg3);border-radius:0 4px 4px 0;font-family:var(--mono);font-size:11px;line-height:1.6;color:var(--text2);max-height:120px;overflow-y:auto;">${q}</div>`).join('');
+}
+
+function buildSentimentHTML(data) {
+  let html = '';
+
+  // Header card
+  html += `<div class="card">
+    <div class="card-header">
+      <span class="card-title">${data.company} (${data.ticker})</span>
+      <span class="card-badge" style="${sentimentVerdictStyle(data.overall_verdict)}padding:4px 12px;border-radius:4px;font-family:var(--mono);font-size:10px;letter-spacing:1px;">${data.overall_verdict}</span>
+    </div>
+    <div style="padding:16px;">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:12px;">
+        <span>Filing: ${data.filing_type}</span>
+        <span>Date: ${data.filing_date}</span>
+        <span>Chunks: ${data.total_chunks_analyzed}</span>
+        <span>Confidence: ${data.average_confidence}</span>
+      </div>
+      ${sentimentBar(data.overall_sentiment.positive, data.overall_sentiment.negative, data.overall_sentiment.neutral)}
+    </div>
+  </div>`;
+
+  // Section cards
+  for (const section of (data.sections || [])) {
+    html += `<div class="card" style="margin-top:12px;">
+      <div class="card-header">
+        <span class="card-title">${section.section_name}</span>
+        <span class="card-badge" style="${sentimentVerdictStyle(section.verdict)}padding:4px 10px;border-radius:4px;font-family:var(--mono);font-size:10px;letter-spacing:1px;">${section.verdict} · ${section.chunks_analyzed} chunks</span>
+      </div>
+      <div style="padding:16px;">
+        ${sentimentBar(section.sentiment_breakdown.positive, section.sentiment_breakdown.negative, section.sentiment_breakdown.neutral)}
+        
+        <div style="margin-top:16px;">
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;">Key Bullish Signals</div>
+          ${sentimentQuotes(section.key_bullish_quotes, 'bullish')}
+        </div>
+        
+        <div style="margin-top:16px;">
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;">Key Bearish Signals</div>
+          ${sentimentQuotes(section.key_bearish_quotes, 'bearish')}
+        </div>
+        
+        ${section.section_summary ? `<div style="margin-top:16px;padding:12px 16px;background:var(--bg3);border-radius:6px;border-left:3px solid var(--accent);font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--text2);">
+          <div style="font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:6px;">Section Summary</div>
+          ${section.section_summary}
+        </div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // Executive summary
+  if (data.executive_summary) {
+    html += `<div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <span class="card-title">Executive Summary</span>
+        <span class="card-badge">AI SYNTHESIS</span>
+      </div>
+      <div style="padding:16px 20px;border-left:3px solid var(--accent);margin:12px;background:var(--bg3);border-radius:0 6px 6px 0;font-family:var(--mono);font-size:12px;line-height:1.8;color:var(--text);">
+        ${data.executive_summary}
+      </div>
+    </div>`;
+  }
+
+  return html;
+}
+
+async function runSentiment() {
+  const ticker = document.getElementById('sentimentTicker').value.trim().toUpperCase();
+  if (!ticker) return;
+
+  const btn = document.getElementById('sentimentRunBtn');
+  const status = document.getElementById('sentimentStatus');
+  const results = document.getElementById('sentimentResults');
+
+  btn.disabled = true;
+  btn.textContent = 'ANALYZING...';
+  btn.style.opacity = '0.6';
+  status.textContent = 'Fetching SEC filing & running FinBERT sentiment analysis... this takes 60-90 seconds on first run';
+  results.innerHTML = '';
+
+  try {
+    const resp = await fetch(`/api/sentiment?symbol=${ticker}`);
+    const data = await resp.json();
+
+    if (data.error) {
+      results.innerHTML = `<div class="card"><div style="padding:16px;color:var(--red);font-family:var(--mono);font-size:12px;">Error: ${data.error}</div></div>`;
+      return;
+    }
+
+    results.innerHTML = buildSentimentHTML(data);
+  } catch (e) {
+    results.innerHTML = `<div class="card"><div style="padding:16px;color:var(--red);font-family:var(--mono);font-size:12px;">Request failed: ${e.message}</div></div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'ANALYZE';
+    btn.style.opacity = '1';
+    status.textContent = '';
+  }
+}
+
 document.querySelectorAll('.nav-tab').forEach(t => {
   t.addEventListener('click', function() {
     document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));

@@ -66,6 +66,7 @@ ALPHA_KEY = _get_key('ALPHA_VANTAGE_KEY', 'ALPHA_VANTAGE_API_KEY', 'ALPHAVANTAGE
 FINNHUB_KEY = _get_key('FINNHUB_TOKEN', 'FINNHUB_API_KEY', 'FINNHUB_KEY')
 FRED_KEY = (os.getenv('FRED_API_KEY') or os.getenv('FRED_KEY') or '').strip()
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '').strip()
+HF_API_TOKEN = os.environ.get('HF_API_TOKEN', '').strip()
 EODHD_KEY = os.environ.get('EODHD_API_KEY', '').strip()
 POLYGON_KEY = os.environ.get('POLYGON_API_KEY', '').strip()
 
@@ -1727,6 +1728,415 @@ def _build_stock_search(symbol):
     return out
 
 
+EDGAR_HEADERS = {
+    "User-Agent": "APEX Research Terminal apex@example.com",
+    "Accept": "application/json"
+}
+
+
+def _sentiment_get_cik(ticker):
+    """Look up CIK from SEC EDGAR ticker map."""
+    cache_key = f"cik:{ticker}"
+    cached = _cache_get(cache_key, 86400)
+    if cached:
+        return cached
+    url = "https://www.sec.gov/files/company_tickers.json"
+    resp = requests.get(url, headers=EDGAR_HEADERS, timeout=15)
+    data = resp.json()
+    for entry in data.values():
+        if entry["ticker"].upper() == ticker.upper():
+            cik = str(entry["cik_str"]).zfill(10)
+            _cache_set(cache_key, cik)
+            return cik
+    raise ValueError(f"Ticker {ticker} not found")
+
+
+def _sentiment_get_filing(cik, ticker):
+    """Get latest 10-Q or 10-K filing metadata."""
+    url = f"https://data.sec.gov/submissions/CIK{cik}.json"
+    resp = requests.get(url, headers=EDGAR_HEADERS, timeout=15)
+    data = resp.json()
+    company = data.get("name", ticker)
+    filings = data["filings"]["recent"]
+    for form_type in ["10-Q", "10-K"]:
+        for i in range(len(filings["form"])):
+            if filings["form"][i] == form_type:
+                return {
+                    "company": company,
+                    "form": form_type,
+                    "date": filings["filingDate"][i],
+                    "accession": filings["accessionNumber"][i].replace("-", ""),
+                    "primary_doc": filings["primaryDocument"][i],
+                    "cik": cik
+                }
+    raise ValueError(f"No 10-Q or 10-K found for {ticker}")
+
+
+def _sentiment_extract_sections(filing):
+    """Download filing and extract MD&A, Risk Factors,
+    Notes sections."""
+    import html as html_lib
+    import re
+
+    url = (f"https://www.sec.gov/Archives/edgar/data/"
+           f"{filing['cik']}/{filing['accession']}/"
+           f"{filing['primary_doc']}")
+    resp = requests.get(url, headers=EDGAR_HEADERS, timeout=30)
+    text = html_lib.unescape(resp.text)
+    text = re.sub(r'&#\d+;|&#x[0-9a-fA-F]+;', ' ', text)
+    text = re.sub(r'&[a-zA-Z]+;', ' ', text)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    print(f"[SENTIMENT] Raw text length: {len(text)}")
+
+    sections = {}
+    section_patterns = {
+        "mda": {
+            "start": r'(?i)management.s discussion and analysis',
+            "end": r'(?i)quantitative and qualitative disclosures about market risk'
+        },
+        "risk_factors": {
+            "start": r'(?i)(?:item\s*1a\.?\s*)?risk\s+factors',
+            "end": r'(?i)(?:item\s*1b|item\s*2|unresolved\s+staff\s+comments|properties)'
+        },
+        "notes": {
+            "start": r'(?i)notes\s+to\s+(?:condensed\s+)?(?:consolidated\s+)?(?:unaudited\s+)?financial\s+statements',
+            "end": r'(?i)(?:item\s*2|management.s discussion and analysis)'
+        }
+    }
+
+    for name, patterns in section_patterns.items():
+        start_matches = list(re.finditer(patterns["start"], text))
+        found = False
+        for start_match in start_matches:
+            end_match = re.search(patterns["end"], text[start_match.end():])
+            if end_match:
+                end_pos = start_match.end() + end_match.start()
+                if (end_pos - start_match.start()) > 2000:
+                    sections[name] = text[start_match.start():end_pos].strip()
+                    found = True
+                    break
+        if not found and start_matches:
+            sections[name] = text[start_matches[-1].start():start_matches[-1].start() + 60000].strip()
+        elif not found:
+            sections[name] = None
+
+        print(f"[SENTIMENT] {name}: {'Found ' + str(len(sections[name])) + ' chars' if sections[name] else 'NOT FOUND'}")
+
+    return sections
+
+
+def _sentiment_chunk_sentences(text, sentences_per_chunk=3, overlap=1):
+    """Split text into sentence-based chunks."""
+    import re
+    sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+    chunks = []
+    i = 0
+    while i < len(sentences):
+        chunk = ' '.join(sentences[i:i + sentences_per_chunk])
+        chunks.append(chunk)
+        i += sentences_per_chunk - overlap
+    return chunks
+
+
+def _sentiment_is_table_chunk(chunk):
+    """Skip chunks that are mostly numbers/tables."""
+    if not chunk:
+        return True
+    digit_count = sum(1 for c in chunk if c.isdigit())
+    if digit_count / len(chunk) > 0.25:
+        return True
+    import re
+    paren_nums = len(re.findall(r'\(\d[\d,]*\)', chunk))
+    dollar_nums = len(re.findall(r'\$\s*[\d,]+', chunk))
+    if paren_nums + dollar_nums > 5:
+        return True
+    return False
+
+
+def _sentiment_score_chunks_hf(chunks):
+    """Score chunks using HuggingFace Inference API for
+    ProsusAI/finbert."""
+    import time as _time
+
+    print(f"[SENTIMENT-HF] Token present: {bool(HF_API_TOKEN)}")
+    print(f"[SENTIMENT-HF] Token prefix: {HF_API_TOKEN[:10]}...")
+    print(f"[SENTIMENT-HF] Chunks to score: {len(chunks)}")
+
+    filtered_chunks = [
+        c for c in chunks
+        if len(c.strip()) >= 20 and not _sentiment_is_table_chunk(c)
+    ]
+    print(f"[SENTIMENT-HF] Chunks after filtering: {len(filtered_chunks)}")
+
+    if len(filtered_chunks) > 30:
+        filtered_chunks = filtered_chunks[5:20] + filtered_chunks[-15:]
+        print(f"[SENTIMENT-HF] Capped to {len(filtered_chunks)} chunks (5-20 + last 15)")
+
+    API_URL = "https://router.huggingface.co/hf-inference/models/ProsusAI/finbert"
+    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
+
+    results = []
+    first_hf_response_logged = False
+    for i, chunk in enumerate(filtered_chunks):
+        # HF API accepts max ~512 tokens, truncate to
+        # roughly 512 words
+        input_text = ' '.join(chunk.split()[:450])
+
+        # Retry logic for cold starts
+        for attempt in range(3):
+            try:
+                resp = requests.post(
+                    API_URL,
+                    headers=headers,
+                    json={"inputs": input_text},
+                    timeout=30
+                )
+                if not first_hf_response_logged:
+                    print(f"[SENTIMENT-HF] First response: {resp.status_code} {resp.text[:200]}")
+                    first_hf_response_logged = True
+                result = resp.json()
+
+                # Handle model loading response
+                if isinstance(result, dict) and result.get("error") and "loading" in result["error"].lower():
+                    wait_time = result.get("estimated_time", 20)
+                    _time.sleep(min(wait_time, 30))
+                    continue
+
+                # HF returns [[{label, score}, ...]] format
+                if isinstance(result, list) and len(result) > 0:
+                    if isinstance(result[0], list):
+                        scores = result[0]
+                    else:
+                        scores = result
+
+                    # Find the top label
+                    best = max(scores, key=lambda x: x["score"])
+                    results.append({
+                        "chunk_index": i,
+                        "label": best["label"].lower(),
+                        "confidence": round(best["score"], 4),
+                        "text": chunk
+                    })
+                    _time.sleep(0.3)
+                    break
+
+            except Exception as e:
+                print(f"[SENTIMENT-HF] Error on chunk {i}: {e}")
+                if attempt == 2:
+                    pass
+                else:
+                    _time.sleep(2)
+
+    return results
+
+
+def _sentiment_analyze_section(section_name, section_text):
+    """Analyze one section: chunk, score, aggregate."""
+    display_names = {
+        "mda": "MD&A",
+        "risk_factors": "Risk Factors",
+        "notes": "Notes to Financial Statements"
+    }
+
+    chunks = _sentiment_chunk_sentences(section_text)
+    scores = _sentiment_score_chunks_hf(chunks)
+
+    if not scores:
+        return None
+
+    positive = [s for s in scores if s["label"] == "positive"]
+    negative = [s for s in scores if s["label"] == "negative"]
+    neutral = [s for s in scores if s["label"] == "neutral"]
+
+    total = len(scores)
+    pos_pct = round(len(positive) / total * 100, 1)
+    neg_pct = round(len(negative) / total * 100, 1)
+    neu_pct = round(len(neutral) / total * 100, 1)
+
+    if pos_pct > neg_pct + 15:
+        verdict = "BULLISH"
+    elif neg_pct > pos_pct + 15:
+        verdict = "BEARISH"
+    elif pos_pct > neg_pct:
+        verdict = "SLIGHTLY BULLISH"
+    elif neg_pct > pos_pct:
+        verdict = "SLIGHTLY BEARISH"
+    else:
+        verdict = "NEUTRAL"
+
+    top_bullish = sorted(positive, key=lambda x: x["confidence"], reverse=True)[:3]
+    top_bearish = sorted(negative, key=lambda x: x["confidence"], reverse=True)[:3]
+    avg_conf = round(sum(s["confidence"] for s in scores) / total, 4)
+
+    return {
+        "section_name": display_names.get(section_name, section_name),
+        "verdict": verdict,
+        "sentiment_breakdown": {
+            "positive": f"{pos_pct}%",
+            "negative": f"{neg_pct}%",
+            "neutral": f"{neu_pct}%"
+        },
+        "chunks_analyzed": total,
+        "average_confidence": avg_conf,
+        "key_bullish_quotes": [s["text"] for s in top_bullish],
+        "key_bearish_quotes": [s["text"] for s in top_bearish],
+        "section_summary": ""
+    }
+
+
+def _sentiment_llm_summary(prompt_text):
+    """Call Groq Llama for a summary. Returns string."""
+    if not GROQ_API_KEY:
+        return "LLM summary unavailable — no Groq API key"
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": prompt_text}],
+                "temperature": 0.3
+            },
+            timeout=60
+        )
+        data = resp.json()
+        return (data.get("choices", [{}])[0]
+                .get("message", {}).get("content", ""))
+    except Exception as e:
+        return f"LLM summary failed: {e}"
+
+
+def _build_sentiment_report(symbol):
+    """Full sentiment pipeline for a ticker."""
+    cache_key = f"sentiment:{symbol}"
+    cached = _cache_get(cache_key, 3600)
+    if cached:
+        return cached
+
+    if not HF_API_TOKEN:
+        raise ValueError("HF_API_TOKEN not configured")
+
+    # Step 1-2: EDGAR lookup
+    cik = _sentiment_get_cik(symbol)
+    print(f"[SENTIMENT] CIK: {cik}")
+    filing = _sentiment_get_filing(cik, symbol)
+    print(f"[SENTIMENT] Filing: {filing}")
+
+    # Step 3: Extract sections
+    sections_text = _sentiment_extract_sections(filing)
+
+    # Step 4: Analyze each section
+    section_analyses = []
+    for name in ("mda", "risk_factors", "notes"):
+        if sections_text.get(name):
+            analysis = _sentiment_analyze_section(
+                name, sections_text[name])
+            if analysis:
+                section_analyses.append(analysis)
+
+    if not section_analyses:
+        raise ValueError(
+            f"No sections could be extracted from {symbol} filing")
+
+    # Step 5: Overall sentiment (equal weight per section)
+    pos_avg = round(sum(
+        float(s["sentiment_breakdown"]["positive"].strip('%'))
+        for s in section_analyses) / len(section_analyses), 1)
+    neg_avg = round(sum(
+        float(s["sentiment_breakdown"]["negative"].strip('%'))
+        for s in section_analyses) / len(section_analyses), 1)
+    neu_avg = round(100 - pos_avg - neg_avg, 1)
+
+    if pos_avg > neg_avg + 15:
+        overall_verdict = "BULLISH"
+    elif neg_avg > pos_avg + 15:
+        overall_verdict = "BEARISH"
+    elif pos_avg > neg_avg:
+        overall_verdict = "SLIGHTLY BULLISH"
+    elif neg_avg > pos_avg:
+        overall_verdict = "SLIGHTLY BEARISH"
+    else:
+        overall_verdict = "NEUTRAL"
+
+    total_chunks = sum(s["chunks_analyzed"] for s in section_analyses)
+    avg_confidence = round(sum(
+        s["average_confidence"] * s["chunks_analyzed"]
+        for s in section_analyses) / total_chunks, 4) if total_chunks else 0
+
+    # Step 6: LLM section summaries
+    for section in section_analyses:
+        bullish_text = "\n".join(
+            f"- {q}" for q in section.get("key_bullish_quotes", [])
+        ) or "- None"
+        bearish_text = "\n".join(
+            f"- {q}" for q in section.get("key_bearish_quotes", [])
+        ) or "- None"
+
+        prompt = (
+            "You are a senior equity research analyst. Based on the "
+            f"following sentiment analysis of the {section['section_name']} "
+            f"section from {filing['company']}'s latest 10-Q filing, write "
+            "a 2-3 sentence summary. Be specific — reference actual numbers "
+            "and key phrases. Identify the single most important takeaway "
+            "for an investor. No generic language.\n\n"
+            f"Section: {section['section_name']}\n"
+            f"Verdict: {section['verdict']}\n"
+            f"Sentiment: {section['sentiment_breakdown']}\n"
+            f"Key bullish quotes:\n{bullish_text}\n\n"
+            f"Key bearish quotes:\n{bearish_text}"
+        )
+        section["section_summary"] = _sentiment_llm_summary(prompt)
+
+    # Step 7: Executive summary
+    section_summaries = {
+        s["section_name"]: s.get("section_summary", "Unavailable")
+        for s in section_analyses
+    }
+    exec_prompt = (
+        "You are a senior equity research analyst writing the "
+        f"executive summary for a 10-Q sentiment report on "
+        f"{filing['company']} ({symbol}). Below are the individual "
+        "section summaries. Write a 4-5 sentence executive summary "
+        "that synthesizes insights ACROSS all sections. Identify "
+        "where sections agree or contradict each other. End with "
+        "one sentence on what to monitor going forward. Reference "
+        "specific numbers.\n\n"
+        f"Overall verdict: {overall_verdict}\n"
+        f"Overall sentiment: Positive {pos_avg}%, "
+        f"Negative {neg_avg}%, Neutral {neu_avg}%\n\n"
+        f"MD&A Summary: {section_summaries.get('MD&A', 'Unavailable')}\n"
+        f"Risk Factors Summary: {section_summaries.get('Risk Factors', 'Unavailable')}\n"
+        f"Notes Summary: {section_summaries.get('Notes to Financial Statements', 'Unavailable')}"
+    )
+    executive_summary = _sentiment_llm_summary(exec_prompt)
+
+    brief = {
+        "ticker": symbol,
+        "company": filing["company"],
+        "filing_type": filing["form"],
+        "filing_date": filing["date"],
+        "analysis_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "overall_verdict": overall_verdict,
+        "overall_sentiment": {
+            "positive": f"{pos_avg}%",
+            "negative": f"{neg_avg}%",
+            "neutral": f"{neu_avg}%"
+        },
+        "total_chunks_analyzed": total_chunks,
+        "average_confidence": avg_confidence,
+        "sections": section_analyses,
+        "executive_summary": executive_summary
+    }
+
+    _cache_set(cache_key, brief)
+    return brief
+
+
 class ProxyHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=os.path.join(os.path.dirname(__file__), '..'), **kwargs)
@@ -2290,6 +2700,23 @@ class ProxyHandler(SimpleHTTPRequestHandler):
             payload = {'articles': articles}
             _cache_set(cache_key, payload)
             self._send_json(payload)
+            return
+
+        if path == '/api/sentiment':
+            symbol = (qs.get('symbol') or [''])[0].strip().upper()
+            if not symbol:
+                self._send_json({'error': 'missing symbol'}, 400)
+                return
+            if not HF_API_TOKEN:
+                self._send_json({
+                    'error': 'HF_API_TOKEN not configured on server'
+                }, 503)
+                return
+            try:
+                data = _build_sentiment_report(symbol)
+                self._send_json(data)
+            except Exception as e:
+                self._send_json({'error': str(e), 'symbol': symbol}, 500)
             return
 
         # Stock universe autocomplete (in-memory, <50ms); company name -> ticker first
